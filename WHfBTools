@@ -2,7 +2,14 @@
 Install-Module -Name WHfBTools
 
 # Scan for orphaned keys
-Get-AzureADWHfBKeys -tenant "yourtenant.onmicrosoft.com" -UserPrincipalName user@domain.com -Logging
+Get-AzureADWHfBKeys -tenant "mountainsidetreatmentcenter.onmicrosoft.com" -UserPrincipalName user@domain.com -Logging
 
 # Remove orphaned keys
-Remove-AzureADWHfBKey -tenant "yourtenant.onmicrosoft.com" -UserPrincipalName user@domain.com -Logging
+Remove-AzureADWHfBKey -tenant "mountainsidetreatmentcenter.onmicrosoft.com" -UserPrincipalName user@domain.com -Logging
+
+
+
+
+
+Get-AzureADKerberosServer -Domain "mountainside.com" -UserPrincipalName "giancarlo.pereira@artemis-partners.com"
+
