@@ -1,0 +1,11 @@
+# All MDM enrollments on the box, with who/what they are
+Get-ChildItem 'HKLM:\SOFTWARE\Microsoft\Enrollments' -ErrorAction SilentlyContinue | ForEach-Object {
+  $p = Get-ItemProperty $_.PSPath
+  [pscustomobject]@{ GUID=$_.PSChildName; ProviderID=$p.ProviderID; UPN=$p.UPN; Type=$p.EnrollmentType }
+} | Format-Table -AutoSize
+
+# All providers PolicyManager knows about (our mystery GUID should be in here)
+Get-ChildItem 'HKLM:\SOFTWARE\Microsoft\PolicyManager\Providers' | Select-Object PSChildName
+
+# What that specific provider is pushing
+Get-ChildItem 'HKLM:\SOFTWARE\Microsoft\PolicyManager\Providers\679D2A6A-8B3B-4DC2-B452-B56FEEDBCD9C' -Recurse -ErrorAction SilentlyContinue | Select-Object PSPath
