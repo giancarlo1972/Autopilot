@@ -1,0 +1,11 @@
+# Is the value coming from GPO/ADMX policy? 
+Get-ItemProperty 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\RemovableStorageDevices\{53f5630d-b6bf-11d0-94f2-00a0c91efb8b}'
+
+# Is it coming from Intune's Policy CSP? (Storage/RemovableDiskDenyWriteAccess)
+Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\PolicyManager\current\device\Storage' -ErrorAction SilentlyContinue
+
+# How is this device managed? Look for AzureAdJoined:YES and an MDM URL (= Intune)
+dsregcmd /status | Select-String "AzureAdJoined|EnterpriseJoined|DomainJoined|MdmUrl"
+
+# If domain-joined: which GPO is winning?
+gpresult /h C:\Temp\gp.html   # then open the HTML and search "Removable"
