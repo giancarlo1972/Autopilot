@@ -86,3 +86,39 @@ Dismount-DiskImage -ImagePath $iso
 Get-Process Windows11InstallationAssistant -ErrorAction SilentlyContinue
 Get-ChildItem 'C:\$WINDOWS.~BT' -ErrorAction SilentlyContinue | Select-Object Name
 
+
+
+
+=====
+
+Cleanup 
+
+
+
+# 1. Is the upgrade actually in progress?
+Get-ChildItem 'C:\$WINDOWS.~BT','C:\$WINDOWS.~WS' -Force -ErrorAction SilentlyContinue | Select-Object FullName
+Get-Process -Name '*InstallationAssistant*','SetupHost','SetupPrep' -ErrorAction SilentlyContinue
+
+# 2. Look at the autologon keys Setup set
+Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon' |
+  Select-Object AutoAdminLogon, DefaultUserName, DefaultDomainName, AutoLogonCount
+
+
+===
+
+
+$wl = 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon'
+Set-ItemProperty $wl -Name AutoAdminLogon -Value 0
+Remove-ItemProperty $wl -Name DefaultPassword    -ErrorAction SilentlyContinue
+Remove-ItemProperty $wl -Name AutoLogonCount     -ErrorAction SilentlyContinue
+Remove-ItemProperty $wl -Name DefaultUserName    -ErrorAction SilentlyContinue
+Remove-ItemProperty $wl -Name DefaultDomainName  -ErrorAction SilentlyContinue
+
+
+
+===
+Hardening 
+
+
+Get-ItemProperty $wl -Name DefaultPassword -ErrorAction SilentlyContinue
+
