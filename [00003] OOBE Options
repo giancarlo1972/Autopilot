@@ -1,0 +1,164 @@
+<#
+.SYNOPSIS
+    Collects the Windows Autopilot hardware hash, with a no-internet fallback.
+
+.DESCRIPTION
+    Tries the official Get-WindowsAutopilotInfo script when the PowerShell
+    Gallery is reachable. If it is not (OOBE, restricted network, TLS issues),
+    falls back to reading the hardware hash directly from WMI - no downloads.
+
+    Works elevated on a running Windows install, or as SYSTEM from the OOBE
+    command prompt (Shift+F10).
+
+.PARAMETER Online
+    Register the device directly in Intune. Prompts for admin credentials.
+
+.PARAMETER GroupTag
+    Optional Autopilot group tag (online mode only).
+
+.PARAMETER OutputPath
+    Full path for the CSV. Defaults to the script's own folder, then C:\Temp.
+
+.EXAMPLE
+    .\Get-AutopilotHash-Hardened.ps1
+    .\Get-AutopilotHash-Hardened.ps1 -Online -GroupTag "Corp"
+#>
+
+[CmdletBinding()]
+param(
+    [switch]$Online,
+    [string]$GroupTag,
+    [string]$OutputPath
+)
+
+$ErrorActionPreference = 'Stop'
+
+function Say { param([string]$m,[string]$c='White') Write-Host $m -ForegroundColor $c }
+
+Write-Host ""
+Say "Windows Autopilot Hardware Hash Collection" Cyan
+Write-Host ""
+
+# --- 1. Elevation check -----------------------------------------------------
+$id = [Security.Principal.WindowsIdentity]::GetCurrent()
+$isAdmin = ([Security.Principal.WindowsPrincipal]$id).IsInRole(
+              [Security.Principal.WindowsBuiltInRole]::Administrator)
+if (-not $isAdmin) {
+    Say "ERROR: This script must run elevated (or as SYSTEM at OOBE)." Red
+    Say "Right-click PowerShell > Run as administrator, then re-run." Yellow
+    exit 1
+}
+Say "Running elevated as: $($id.Name)" Green
+
+# --- 2. Decide output location ---------------------------------------------
+if (-not $OutputPath) {
+    $dir = if ($PSScriptRoot) { $PSScriptRoot } else { 'C:\Temp' }
+    if (-not (Test-Path $dir)) { New-Item -Path $dir -ItemType Directory -Force | Out-Null }
+    $serialForName = (Get-CimInstance Win32_BIOS).SerialNumber.Trim()
+    $OutputPath = Join-Path $dir "AutopilotHash_$serialForName.csv"
+}
+Say "Output file: $OutputPath" Cyan
+Write-Host ""
+
+# --- 3. Try the official script (needs internet + PSGallery) ----------------
+$useOfficial = $false
+try {
+    Say "Preparing PowerShell Gallery access..." Yellow
+    [Net.ServicePointManager]::SecurityProtocol =
+        [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+
+    if (-not (Get-InstalledScript -Name Get-WindowsAutopilotInfo -ErrorAction SilentlyContinue)) {
+        Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force | Out-Null
+        Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
+        Install-Script -Name Get-WindowsAutopilotInfo -Force -Scope AllUsers
+        Say "Get-WindowsAutopilotInfo installed." Green
+    } else {
+        Say "Get-WindowsAutopilotInfo already present." Green
+    }
+    $useOfficial = $true
+}
+catch {
+    Say "Gallery unavailable ($($_.Exception.Message.Split([Environment]::NewLine)[0]))." Yellow
+    Say "Falling back to direct WMI collection - no internet required." Yellow
+    $useOfficial = $false
+}
+
+Write-Host ""
+
+# --- 4a. Online registration (official script only) -------------------------
+if ($Online) {
+    if (-not $useOfficial) {
+        Say "ERROR: -Online requires the official script and internet access." Red
+        Say "Re-run without -Online to produce a CSV for manual import." Yellow
+        exit 1
+    }
+    try {
+        Say "Registering device in Intune. You will be prompted to sign in..." Yellow
+        if ($GroupTag) {
+            Get-WindowsAutopilotInfo -Online -GroupTag $GroupTag
+        } else {
+            Get-WindowsAutopilotInfo -Online
+        }
+        Write-Host ""
+        Say "Device registered in Intune." Green
+        Say "Confirm Profile status = Assigned before booting into setup." Yellow
+        exit 0
+    }
+    catch {
+        Say "Online registration failed: $($_.Exception.Message)" Red
+        Say "Producing a CSV instead..." Yellow
+    }
+}
+
+# --- 4b. Produce the CSV ----------------------------------------------------
+try {
+    if ($useOfficial) {
+        Say "Collecting hash via Get-WindowsAutopilotInfo..." Yellow
+        Get-WindowsAutopilotInfo -OutputFile $OutputPath
+    }
+    else {
+        Say "Collecting hash via WMI..." Yellow
+        $serial = (Get-CimInstance Win32_BIOS).SerialNumber.Trim()
+        $hash   = (Get-CimInstance -Namespace root/cimv2/mdm/dmmap `
+                    -ClassName MDM_DevDetail_Ext01 `
+                    -Filter "InstanceID='Ext' AND ParentID='./DevDetail'").DeviceHardwareData
+
+        if (-not $hash) { throw "Hardware hash is empty - check TPM state and that this is a supported OS build." }
+
+        'Device Serial Number,Windows Product ID,Hardware Hash' |
+            Out-File -FilePath $OutputPath -Encoding ascii -Force
+        "$serial,,$hash" |
+            Out-File -FilePath $OutputPath -Encoding ascii -Append
+    }
+}
+catch {
+    Say "FAILED: $($_.Exception.Message)" Red
+    exit 1
+}
+
+# --- 5. Verify the result ---------------------------------------------------
+if (-not (Test-Path $OutputPath)) {
+    Say "FAILED: no output file was produced." Red
+    exit 1
+}
+$lines = Get-Content $OutputPath
+if ($lines.Count -lt 2 -or [string]::IsNullOrWhiteSpace($lines[1])) {
+    Say "FAILED: output file has no device row - the hash was not collected." Red
+    exit 1
+}
+$fields = $lines[1].Split(',')
+if ($fields.Count -lt 3 -or [string]::IsNullOrWhiteSpace($fields[2])) {
+    Say "FAILED: hardware hash field is empty." Red
+    exit 1
+}
+
+Write-Host ""
+Say "SUCCESS" Green
+Say "  Serial : $($fields[0])" Cyan
+Say "  Hash   : $($fields[2].Substring(0,[Math]::Min(40,$fields[2].Length)))..." Cyan
+Say "  File   : $OutputPath" Cyan
+Write-Host ""
+Say "Next: Intune > Devices > Enrollment > Windows Autopilot > Devices > Import" Yellow
+Say "Then wait for Profile status = Assigned before booting the machine into setup." Yellow
+Write-Host ""
+exit 0
