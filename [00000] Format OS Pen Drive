@@ -9,3 +9,13 @@ dsregcmd /status | Select-String "AzureAdJoined|EnterpriseJoined|DomainJoined|Md
 
 # If domain-joined: which GPO is winning?
 gpresult /h C:\Temp\gp.html   # then open the HTML and search "Removable"
+
+
+
+
+===
+#### Registry Manully switch
+
+Computer\HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Policies\Microsoft\FVE
+
+To 0
