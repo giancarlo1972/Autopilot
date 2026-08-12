@@ -1,0 +1,88 @@
+# --- Win10 -> Win11 in-place upgrade (Installation Assistant, silent) ---
+$dir = 'C:\Win11Upgrade'
+New-Item -ItemType Directory -Path $dir -Force | Out-Null
+$exe = Join-Path $dir 'Windows11InstallationAssistant.exe'
+
+# Suspend BitLocker so the TPM/firmware change doesn't trigger a recovery-key prompt on reboot
+Suspend-BitLocker -MountPoint 'C:' -RebootCount 2 -ErrorAction SilentlyContinue
+
+# Official Microsoft download (verify current link on the software-download page)
+Invoke-WebRequest -Uri 'https://go.microsoft.com/fwlink/?linkid=2171764' -OutFile $exe
+
+# Silent upgrade, keep apps + files
+Start-Process -FilePath $exe `
+  -ArgumentList '/QuietInstall /SkipEULA /auto upgrade /NoRestartUI /copylogs ' + $dir `
+  -Wait
+
+
+
+
+# --- Variant: mounted ISO, no forced reboot ---
+$iso = 'C:\Win11Upgrade\Win11_25H2.iso'   # download the ISO from the software-download page first
+$vol = (Mount-DiskImage -ImagePath $iso -PassThru | Get-Volume).DriveLetter
+Start-Process -FilePath "$vol`:\setup.exe" `
+  -ArgumentList '/auto upgrade /quiet /eula accept /dynamicupdate enable /migratedrivers all /noreboot' `
+  -Wait
+Dismount-DiskImage -ImagePath $iso
+# then reboot on your schedule:  Restart-Computer -Force
+
+
+
+
+
+
+# --- Win10 -> Win11 in-place upgrade via Installation Assistant (auto-downloads) ---
+$dir = 'C:\Win11Upgrade'
+New-Item -ItemType Directory -Path $dir -Force | Out-Null
+$exe = Join-Path $dir 'Windows11InstallationAssistant.exe'
+
+# Suspend BitLocker across the upgrade reboots (no-op if BitLocker is off)
+Suspend-BitLocker -MountPoint 'C:' -RebootCount 2 -ErrorAction SilentlyContinue
+
+# Download the official tool
+Invoke-WebRequest -Uri 'https://go.microsoft.com/fwlink/?linkid=2171764' -OutFile $exe
+
+# Confirm it actually downloaded before running
+if (-not (Test-Path $exe)) { throw "Download failed - grab it manually from microsoft.com/software-download/windows11" }
+
+# Silent in-place upgrade, keeps apps + files
+$argList = "/QuietInstall /SkipEULA /auto upgrade /NoRestartUI /copylogs $dir"
+Start-Process -FilePath $exe -ArgumentList $argList -Wait
+
+
+
+
+
+$iso = 'C:\Users\<you>\Downloads\Win11_25H2_English_x64.iso'   # <-- real path to the file you downloaded
+Test-Path $iso   # must return True before continuing
+$vol = (Mount-DiskImage -ImagePath $iso -PassThru | Get-Volume).DriveLetter
+Start-Process -FilePath "$vol`:\setup.exe" -ArgumentList '/auto upgrade /quiet /eula accept /dynamicupdate enable /migratedrivers all /noreboot' -Wait
+Dismount-DiskImage -ImagePath $iso
+
+
+
+
+(Get-BitLockerVolume -MountPoint 'C:').KeyProtector | Format-Table KeyProtectorId, KeyProtectorType, RecoveryPassword -AutoSize
+
+
+
+$dir = 'C:\Win11Upgrade'
+$exe = Join-Path $dir 'Windows11InstallationAssistant.exe'
+Test-Path $exe   # should be True from your earlier download
+Start-Process -FilePath $exe -ArgumentList "/QuietInstall /SkipEULA /auto upgrade /NoRestartUI /copylogs $dir" -Wait
+
+
+
+# 1. Download the ISO manually from: https://www.microsoft.com/software-download/windows11  (choose "Windows 11 Disk Image (ISO)")
+# 2. Then point $iso at the downloaded file — example:
+$iso = 'C:\Users\' + $env:USERNAME + '\Downloads\Win11_25H2_English_x64.iso'
+Test-Path $iso   # MUST return True before you continue
+$vol = (Mount-DiskImage -ImagePath $iso -PassThru | Get-Volume).DriveLetter
+Start-Process -FilePath "$vol`:\setup.exe" -ArgumentList '/auto upgrade /quiet /eula accept /dynamicupdate enable /migratedrivers all /noreboot' -Wait
+Dismount-DiskImage -ImagePath $iso
+
+
+
+Get-Process Windows11InstallationAssistant -ErrorAction SilentlyContinue
+Get-ChildItem 'C:\$WINDOWS.~BT' -ErrorAction SilentlyContinue | Select-Object Name
+
