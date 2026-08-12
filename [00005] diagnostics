@@ -38,3 +38,19 @@ netsh wlan show profile name="<YourSSID>" key=clear | Select-String "Connection 
 Start-ScheduledTask -TaskPath '\Microsoft\Windows\Workplace Join\' -TaskName 'Automatic-Device-Join'
 Start-Sleep 90
 dsregcmd /status | Select-String "AzureAdJoined|Error"
+
+
+
+
+w32tm /query /status          # look at Source (should be a DC) and Last Successful Sync
+w32tm /stripchart /computer:AZDC01.Mountainside.local /samples:3 /dataonly   # offset vs DC — anything under a few seconds is fine
+
+===
+
+# Is Wi-Fi machine-wide / auto-connect (available to SYSTEM at boot)?
+netsh wlan show profiles
+
+# Kick the join while the network is definitely up:
+Start-ScheduledTask -TaskPath '\Microsoft\Windows\Workplace Join\' -TaskName 'Automatic-Device-Join'
+Start-Sleep 90
+dsregcmd /status | Select-String "AzureAdJoined|Error"
