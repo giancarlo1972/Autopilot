@@ -54,3 +54,27 @@ netsh wlan show profiles
 Start-ScheduledTask -TaskPath '\Microsoft\Windows\Workplace Join\' -TaskName 'Automatic-Device-Join'
 Start-Sleep 90
 dsregcmd /status | Select-String "AzureAdJoined|Error"
+
+
+
+======
+
+
+# 1. What DNS servers does the T14 actually have on its ACTIVE adapter?
+Get-DnsClientServerAddress -AddressFamily IPv4 | Format-Table InterfaceAlias, ServerAddresses
+Get-NetAdapter | Where-Object Status -eq 'Up' | Format-Table Name, InterfaceDescription
+
+# 2. Can it resolve the domain at all?
+Resolve-DnsName Mountainside.local
+Resolve-DnsName AZDC01.Mountainside.local
+nslookup Mountainside.local
+
+# 3. If those fail — test each DNS server directly:
+Resolve-DnsName Mountainside.local -Server 172.30.11.10
+Resolve-DnsName Mountainside.local -Server 192.168.1.9
+
+
+=====
+
+Start-ScheduledTask -TaskPath '\Microsoft\Windows\Workplace Join\' -TaskName 'Automatic-Device-Join'
+Start-Sleep 90; dsregcmd /status | Select-String "AzureAdJoined|Error"
