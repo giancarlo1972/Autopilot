@@ -15,3 +15,34 @@ Get-CimInstance Win32_BIOS | Select-Object SerialNumber
 systemreset          # opens "Reset this PC" (interactive - pick "Remove everything")
 # or
 systemreset -factoryreset    # jumps straight to the "Remove everything / Keep files" chooser
+
+
+
+
+
+if this does not work 'systemreset is not recognized then: 
+=====
+
+C:\Windows\System32\SystemReset.exe -factoryreset
+
+
+===
+
+
+Test-Path C:\Windows\System32\SystemReset.exe
+
+
+
+===
+
+start ms-settings:recovery
+
+
+
+==-==
+
+
+Test-Path C:\Windows\System32\SystemReset.exe
+$PSVersionTable.PSEdition
+whoami
+
