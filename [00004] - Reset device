@@ -1,1 +1,66 @@
+Before start - check the autopilot Enrollment if okay? 
+
+#only get serialnumber
+Get-CimInstance Win32_BIOS | Select-Object SerialNumber
+# quick one-liner:  (Get-CimInstance Win32_BIOS).SerialNumber
+
+
+
+====
+
+
+
+
+# Serial + model + the Autopilot hardware hash
+Get-CimInstance Win32_BIOS | Select-Object SerialNumber
+Get-CimInstance Win32_ComputerSystem | Select-Object Model, Manufacturer
+Get-CimInstance -Namespace root/cimv2/mdm/dmmap -ClassName MDM_DevDetail_Ext01 `
+  -Filter "InstanceID='Ext' AND ParentID='./DevDetail'" |
+  Select-Object -ExpandProperty DeviceHardwareData
+
+
+
+
+
+=====
+
+# If NOT yet registered: capture the hash to a CSV, then import it in Intune
+Install-Script Get-WindowsAutopilotInfo -Force
+Get-WindowsAutopilotInfo -OutputFile C:\Autopilot\hash.csv
+# Intune → Autopilot devices → Import → upload hash.csv → wait for Assigned
+
+
+
+====
+
+
+# Reset to OOBE so Autopilot can pick up (wipes the device)
+Start-Process 'systemreset.exe' -ArgumentList '-factoryreset'
+# or fully unattended (no prompts): 
+# systemreset.exe -cleanpc
+
+
+
+=====
+
+
+
+# 1. Is the device actually registered in Autopilot, and is a profile ASSIGNED?
+#    (Intune admin center → Devices → Windows → Enrollment → Autopilot devices → confirm the serial shows "Assigned", not just "Registered")
+
+# 2. Grab the hardware hash / serial to confirm it matches what's registered:
+Get-CimInstance -Namespace root/cimv2/mdm/dmmap -ClassName MDM_DevDetail_Ext01 -Filter "InstanceID='Ext' AND ParentID='./DevDetail'" | Select-Object DeviceHardwareData -ErrorAction SilentlyContinue
+Get-CimInstance Win32_BIOS | Select-Object SerialNumber
+
+
+
+
+====
+
+
+systemreset.exe -factoryreset      # interactive "Reset this PC"
+# or unattended:  systemreset.exe -cleanpc
+
+
+
 
