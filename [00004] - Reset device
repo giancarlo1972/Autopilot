@@ -46,3 +46,22 @@ Test-Path C:\Windows\System32\SystemReset.exe
 $PSVersionTable.PSEdition
 whoami
 
+
+
+====
+
+
+if all of these failes - THen 
+
+
+# Reboots into the recovery environment, where "Reset this PC" lives independently of the missing stub
+shutdown /r /o /f /t 0
+
+
+===
+
+This is a NOTE
+$$$$ from recovery menu 
+From the blue recovery menu: Troubleshoot → Reset this PC → Remove everything.
+Any of the three gets you to OOBE so Hybrid Autopilot can engage. My pick for you: start ms-settings:recovery → Remove everything — simplest, and doesn't depend on the device being enrolled.
+
