@@ -1,0 +1,18 @@
+dsregcmd /status | Select-String "AzureAdJoined|DomainJoined|TenantName|DeviceId"
+
+===
+
+Get-ADSyncScheduler          # next sync time
+Start-ADSyncSyncCycle -PolicyType Delta   # force it now
+
+===
+
+# The scheduled task that performs the hybrid join:
+Start-ScheduledTask -TaskPath '\Microsoft\Windows\Workplace Join\' -TaskName 'Automatic-Device-Join'
+# then after a minute:
+dsregcmd /status | Select-String "AzureAdJoined"
+
+
+
+dsregcmd /status /debug > C:\Temp\dsreg.txt
+# and check Event Viewer: Applications and Services → Microsoft → Windows → User Device Registration → Admin
