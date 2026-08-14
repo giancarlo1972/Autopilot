@@ -18,3 +18,174 @@ Rename-Computer -NewName $newName -DomainCredential MOUNTAINSIDE\gpereira -Resta
 
 ===
 
+
+<#
+.SYNOPSIS
+    Renames a Windows device to <TYPE><SERIAL>, detecting laptop / desktop /
+    server / virtual machine automatically.
+
+.DESCRIPTION
+    Builds a deterministic name from the chassis type and BIOS serial number,
+    so no central number allocation is needed and the name is unique by
+    construction.
+
+    Safety features that matter for production use:
+      - Idempotent. If the name is already correct it exits without a reboot.
+      - Rejects placeholder serials ("To Be Filled By O.E.M." and similar).
+      - Sanitises the serial to characters valid in a NetBIOS name.
+      - Keeps the rightmost characters of the serial when truncating to 15,
+        because serial numbers vary in their most significant end.
+      - Renames the AD object and the machine together when run with domain
+        credentials, which prevents the trust relationship breaking.
+      - -WhatIf shows the intended name without changing anything.
+
+.PARAMETER DomainCredential
+    Credential with rights to rename the computer object in AD. Omit when
+    running as SYSTEM on a device whose computer account has been delegated
+    self-rename rights.
+
+.PARAMETER Restart
+    Restart immediately after a successful rename. Without it the rename
+    applies at the next restart.
+
+.PARAMETER Prefix
+    Override the automatic type detection (for example "SV").
+
+.EXAMPLE
+    .\Set-StandardComputerName.ps1 -WhatIf
+    .\Set-StandardComputerName.ps1 -DomainCredential (Get-Credential) -Restart
+    .\Set-StandardComputerName.ps1 -Prefix SV
+#>
+
+[CmdletBinding(SupportsShouldProcess = $true)]
+param(
+    [System.Management.Automation.PSCredential]$DomainCredential,
+    [switch]$Restart,
+    [ValidatePattern('^[A-Za-z]{1,4}$')]
+    [string]$Prefix,
+    [string]$LogPath = 'C:\ProgramData\ComputerRename.log'
+)
+
+function Write-Log {
+    param([string]$Message, [string]$Colour = 'White')
+    $line = "{0}  {1}" -f (Get-Date -Format 's'), $Message
+    Write-Host $Message -ForegroundColor $Colour
+    try { $line | Out-File -FilePath $LogPath -Append -Encoding utf8 } catch { }
+}
+
+Write-Log "=== Computer rename check ===" Cyan
+
+# --- 1. Determine the device type prefix ------------------------------------
+if ($Prefix) {
+    $type = $Prefix.ToUpper()
+    Write-Log "Prefix supplied: $type"
+}
+else {
+    $cs      = Get-CimInstance Win32_ComputerSystem
+    $chassis = (Get-CimInstance Win32_SystemEnclosure).ChassisTypes
+
+    # 8-14, 18, 21, 30-32 cover portable, laptop, notebook, sub-notebook,
+    # docking station, convertible and tablet form factors.
+    $portable = 8,9,10,11,12,14,18,21,30,31,32
+    # 17, 23, 28, 29 cover rack mount, blade and expansion chassis.
+    $server   = 17,23,28,29
+
+    $isVirtual = $cs.Model -match 'Virtual|VMware|KVM|Xen|Hyper-V' -or
+                 $cs.Manufacturer -match 'Microsoft Corporation.*Virtual|VMware|Xen|QEMU'
+
+    $type =
+        if     ($isVirtual)                                       { 'VM' }
+        elseif ($chassis | Where-Object { $_ -in $server })        { 'SV' }
+        elseif ($chassis | Where-Object { $_ -in $portable })      { 'LT' }
+        else                                                      { 'DT' }
+
+    Write-Log "Chassis types: $($chassis -join ',')  Model: $($cs.Model)"
+    Write-Log "Detected type: $type"
+}
+
+# --- 2. Get and validate the serial number ----------------------------------
+$rawSerial = (Get-CimInstance Win32_BIOS).SerialNumber
+if ($null -eq $rawSerial) { $rawSerial = '' }
+$rawSerial = $rawSerial.Trim()
+
+$placeholders = @(
+    'To Be Filled By O.E.M.', 'System Serial Number', 'Default string',
+    'None', 'Not Specified', 'Not Applicable', '0123456789', 'INVALID',
+    'Chassis Serial Number', 'Serial Number'
+)
+if ([string]::IsNullOrWhiteSpace($rawSerial) -or $placeholders -contains $rawSerial) {
+    Write-Log "ABORT: BIOS serial is missing or a placeholder ('$rawSerial')." Red
+    Write-Log "Rename this device manually or supply a name another way." Yellow
+    exit 1
+}
+
+# Keep only characters valid in a computer name
+$serial = ($rawSerial -replace '[^A-Za-z0-9-]', '').ToUpper()
+if ([string]::IsNullOrWhiteSpace($serial)) {
+    Write-Log "ABORT: serial contained no usable characters ('$rawSerial')." Red
+    exit 1
+}
+
+# --- 3. Build the name ------------------------------------------------------
+$maxLen    = 15
+$available = $maxLen - $type.Length
+if ($serial.Length -gt $available) {
+    # Keep the rightmost characters, which vary most between units
+    $serial = $serial.Substring($serial.Length - $available)
+    Write-Log "Serial truncated to fit 15 characters." Yellow
+}
+$newName = "$type$serial"
+
+# A computer name cannot be all digits, or start/end with a hyphen
+$newName = $newName.Trim('-')
+if ($newName -match '^\d+$') {
+    Write-Log "ABORT: generated name '$newName' is all digits." Red
+    exit 1
+}
+
+Write-Log "Current name : $env:COMPUTERNAME"
+Write-Log "Proposed name: $newName" Cyan
+
+# --- 4. Skip if already correct --------------------------------------------
+if ($env:COMPUTERNAME -eq $newName) {
+    Write-Log "Already named correctly. Nothing to do." Green
+    exit 0
+}
+
+# --- 5. Rename --------------------------------------------------------------
+if ($PSCmdlet.ShouldProcess($env:COMPUTERNAME, "Rename to $newName")) {
+    try {
+        $params = @{ NewName = $newName; Force = $true; ErrorAction = 'Stop' }
+
+        $isDomainJoined = (Get-CimInstance Win32_ComputerSystem).PartOfDomain
+        if ($isDomainJoined) {
+            if ($DomainCredential) {
+                $params.DomainCredential = $DomainCredential
+                Write-Log "Domain-joined: renaming with supplied credentials."
+            }
+            else {
+                Write-Log "Domain-joined but no credential supplied." Yellow
+                Write-Log "This only succeeds if the computer account has been delegated" Yellow
+                Write-Log "rights to write its own name. Otherwise the AD object will not" Yellow
+                Write-Log "be updated and the trust relationship will break." Yellow
+            }
+        }
+
+        if ($Restart) { $params.Restart = $true }
+
+        Rename-Computer @params
+        Write-Log "Rename submitted successfully." Green
+        if (-not $Restart) { Write-Log "Restart required for the change to take effect." Yellow }
+        exit 0
+    }
+    catch {
+        Write-Log "FAILED: $($_.Exception.Message)" Red
+        exit 1
+    }
+}
+else {
+    Write-Log "WhatIf: no change made." Yellow
+    exit 0
+}
+
+
