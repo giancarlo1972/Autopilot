@@ -1,0 +1,2 @@
+secedit /export /cfg C:\secpol.txt
+notepad C:\secpol.txt
