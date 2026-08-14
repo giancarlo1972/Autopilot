@@ -18,6 +18,17 @@ Test-NetConnection login.microsoftonline.com -Port 443   # must reach Entra
 
 
 
+
+= 
+
+Test-ComputerSecureChannel -Repair -Credential (Get-Credential MOUNTAINSIDE\gpereira)
+# if False, force against a named DC:
+Reset-ComputerMachinePassword -Server AZDC01 -Credential (Get-Credential MOUNTAINSIDE\gpereira)
+Test-ComputerSecureChannel
+
+===
+
+
 Test-ComputerSecureChannel        # should now be True
 gpupdate /force
 
