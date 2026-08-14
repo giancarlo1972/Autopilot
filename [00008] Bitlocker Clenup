@@ -1,1 +1,4 @@
 
+Get-Tpm | Format-List TpmPresent, TpmReady, TpmEnabled
+manage-bde -status C:
+Get-BitLockerVolume -MountPoint C: | Format-List VolumeStatus, ProtectionStatus, KeyProtector
