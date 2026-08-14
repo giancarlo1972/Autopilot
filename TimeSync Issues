@@ -12,3 +12,27 @@ w32tm /stripchart /computer:time.windows.com /samples:3
 Invoke-Command -ComputerName AZDC01 -ScriptBlock { w32tm /query /status; w32tm /query /source }
 
 
+
+
+
+w32tm /config /manualpeerlist:"VA3DC01,0x9" /syncfromflags:manual /update
+Restart-Service w32time
+w32tm /resync /force
+Test-ComputerSecureChannel -Repair -Credential (Get-Credential MOUNTAINSIDE\gpereira)
+
+
+
+===
+
+Reset-ComputerMachinePassword -Server VA3DC01 -Credential (Get-Credential MOUNTAINSIDE\gpereira)
+Test-ComputerSecureChannel        # check again
+
+===
+
+
+# with a wired connection on the correct VLAN if at all possible:
+Remove-Computer -UnjoinDomainCredential (Get-Credential MOUNTAINSIDE\gpereira) -PassThru -Restart
+# then after reboot, rejoin:
+Add-Computer -DomainName MOUNTAINSIDE -Credential (Get-Credential MOUNTAINSIDE\gpereira) -Restart
+
+
