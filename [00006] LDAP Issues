@@ -10,8 +10,11 @@ nltest /dsgetdc:MOUNTAINSIDE
 
 Test-ComputerSecureChannel -Repair -Credential (Get-Credential MOUNTAINSIDE\gpereira)
 
+==
 
-Test-ComputerSecureChannel -Repair -Credential (Get-Credential MOUNTAINSIDE\gpereira)
+ipconfig /all        # DNS Servers must show your DC (10.x.x.10 / VA3DC01), NOT the gateway
+nltest /dsgetdc:MOUNTAINSIDE   # must find a DC
+Test-NetConnection login.microsoftonline.com -Port 443   # must reach Entra
 
 
 
