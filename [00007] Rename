@@ -1,6 +1,4 @@
 
-==
-
 HKLM\SYSTEM\CurrentControlSet\Services\Tcpip6\Parameters
 DisabledComponents (DWORD) = 0x20
 
