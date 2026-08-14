@@ -1,0 +1,15 @@
+
+==
+
+HKLM\SYSTEM\CurrentControlSet\Services\Tcpip6\Parameters
+DisabledComponents (DWORD) = 0x20
+
+===
+
+
+Rename-Computer -NewName "LTWIT####" -DomainCredential MOUNTAINSIDE\gpereira -Restart
+
+
+===
+
+Reset IPV6 if necessary
