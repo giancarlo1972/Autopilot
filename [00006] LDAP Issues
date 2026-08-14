@@ -21,3 +21,10 @@ gpupdate /force
 
 
 
+Get-DhcpServerv4Scope | Select ScopeId, Name, State
+# for the subnet that broke, inspect its DNS option:
+Get-DhcpServerv4OptionValue -ScopeId 10.x.x.0 -OptionId 6
+
+
+
+
