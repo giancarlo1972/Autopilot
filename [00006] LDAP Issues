@@ -97,3 +97,16 @@ Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Services\NTDS\Parameters' -Name
 
 
 
+==== check LDAP CERT
+
+
+# test the LDAPS bind to the DC and inspect the cert
+$c = New-Object System.DirectoryServices.Protocols.LdapConnection(
+     New-Object System.DirectoryServices.Protocols.LdapDirectoryIdentifier('AZDC01.mountainside.local',636))
+$c.SessionOptions.SecureSocketLayer = $true
+try { $c.Bind(); "LDAPS bind OK" } catch { "LDAPS bind failed: $($_.Exception.Message)" }
+
+
+
+
+
