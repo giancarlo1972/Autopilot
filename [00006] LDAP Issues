@@ -65,3 +65,35 @@ powercfg /change hibernate-timeout-dc 0
 
 Get-BitLockerVolume -MountPoint C: | Format-List *
 manage-bde -status C:
+
+===
+
+w32tm /query /status
+w32tm /resync /force
+# force it onto domain time, since it was on time.windows.com:
+w32tm /config /syncfromflags:domhier /update
+Restart-Service w32time
+w32tm /resync /force
+
+
+===
+
+
+Netlogon IssuesGet-WinEvent -LogName System -MaxEvents 40 |
+  Where-Object { $_.ProviderName -in 'NETLOGON','LSASRV','Microsoft-Windows-LDAP-Client' } |
+  Format-List TimeCreated, ProviderName, Message
+
+
+
+===
+
+
+# on the DC, this reg value governs it:
+# HKLM\SYSTEM\CurrentControlSet\Services\NTDS\Parameters\LDAPServerIntegrity
+# 2 = require signing, 1 = negotiate
+Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Services\NTDS\Parameters' -Name LDAPServerIntegrity -ErrorAction SilentlyContinue
+
+
+
+
+
