@@ -1,0 +1,14 @@
+w32tm /config /manualpeerlist:"time.windows.com,0x9" /syncfromflags:manual /update
+Restart-Service w32time
+w32tm /resync /force
+w32tm /query /status
+
+
+
+
+w32tm /stripchart /computer:time.windows.com /samples:3
+
+
+Invoke-Command -ComputerName AZDC01 -ScriptBlock { w32tm /query /status; w32tm /query /source }
+
+
