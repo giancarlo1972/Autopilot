@@ -1,1 +1,20 @@
+# Is the secure channel intact?
+Test-ComputerSecureChannel -Verbose
+
+# Can it even find and bind to a DC?
+nltest /sc_query:MOUNTAINSIDE
+nltest /dsgetdc:MOUNTAINSIDE
+
+
+====
+
+Test-ComputerSecureChannel -Repair -Credential (Get-Credential MOUNTAINSIDE\gpereira)
+
+
+
+Test-ComputerSecureChannel        # should now be True
+gpupdate /force
+
+
+
 
