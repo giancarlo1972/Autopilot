@@ -1,0 +1,10 @@
+Get-DnsClientServerAddress -AddressFamily IPv4
+ipconfig /all    # look at "DHCP Server", "DNS Servers", and whether DHCP Enabled = Yes
+
+
+
+
+# Point at your real internal DNS (use your actual DC/DNS IPs)
+Set-DnsClientServerAddress -InterfaceAlias "Ethernet" -ServerAddresses ("10.x.x.10","10.x.x.11")
+Clear-DnsClientCache
+nltest /dsgetdc:MOUNTAINSIDE     # should now find a DC
