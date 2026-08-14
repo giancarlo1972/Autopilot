@@ -6,10 +6,15 @@ DisabledComponents (DWORD) = 0x20
 
 ===
 
+$type    = "LT"                                          # LT / DT / SV
+$serial  = (Get-CimInstance Win32_BIOS).SerialNumber
+$newName = "$type$serial"
 
-Rename-Computer -NewName "LTWIT####" -DomainCredential MOUNTAINSIDE\gpereira -Restart
+if ($newName.Length -gt 15) { $newName = $newName.Substring(0,15) }
+
+Write-Host "Renaming $env:COMPUTERNAME -> $newName"
+Rename-Computer -NewName $newName -DomainCredential MOUNTAINSIDE\gpereira -Restart
 
 
 ===
 
-Reset IPV6 if necessary
