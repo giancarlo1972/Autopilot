@@ -132,7 +132,9 @@ Get-ChildItem Cert:\LocalMachine\My |
 
 ==
 
-
+Get-WinEvent -LogName 'Microsoft-Windows-GroupPolicy/Operational' -MaxEvents 30 |
+  Where-Object LevelDisplayName -in 'Error','Warning' |
+  Format-List TimeCreated, Id, Message
 
 
 
