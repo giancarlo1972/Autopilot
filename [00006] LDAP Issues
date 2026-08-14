@@ -108,5 +108,31 @@ try { $c.Bind(); "LDAPS bind OK" } catch { "LDAPS bind failed: $($_.Exception.Me
 
 
 
+===
+
+Get-ChildItem Cert:\LocalMachine\My | Where-Object Thumbprint -eq '499066E581478F0C28E297969AEE2ACE45E20116' |
+  Format-List Subject, DnsNameList, NotAfter, Issuer
+
+
+
+===
+
+
+Add-Type -AssemblyName System.DirectoryServices.Protocols
+$id = New-Object System.DirectoryServices.Protocols.LdapDirectoryIdentifier('AZDC01.mountainside.local',636)
+$c  = New-Object System.DirectoryServices.Protocols.LdapConnection($id)
+$c.SessionOptions.SecureSocketLayer = $true
+try { $c.Bind(); "LDAPS bind OK" } catch { "LDAPS bind failed: $($_.Exception.Message)" }
+
+===
+
+Get-ChildItem Cert:\LocalMachine\My |
+  Where-Object Thumbprint -eq '499066E581478F0C28E297969AEE2ACE45E20116' |
+  Format-List Subject, DnsNameList, NotAfter, NotBefore, Issuer
+
+==
+
+
+
 
 
