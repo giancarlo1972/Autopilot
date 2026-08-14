@@ -11,6 +11,9 @@ nltest /dsgetdc:MOUNTAINSIDE
 Test-ComputerSecureChannel -Repair -Credential (Get-Credential MOUNTAINSIDE\gpereira)
 
 
+Test-ComputerSecureChannel -Repair -Credential (Get-Credential MOUNTAINSIDE\gpereira)
+
+
 
 Test-ComputerSecureChannel        # should now be True
 gpupdate /force
