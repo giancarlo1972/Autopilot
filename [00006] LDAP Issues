@@ -28,3 +28,15 @@ Get-DhcpServerv4OptionValue -ScopeId 10.x.x.0 -OptionId 6
 
 
 
+==
+
+
+
+# Keep it awake while you provision
+powercfg /change standby-timeout-ac 0
+powercfg /change standby-timeout-dc 0
+powercfg /change monitor-timeout-ac 0
+powercfg /change monitor-timeout-dc 0
+powercfg /change hibernate-timeout-ac 0
+powercfg /change hibernate-timeout-dc 0
+
