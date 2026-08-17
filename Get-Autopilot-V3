@@ -1,7 +1,7 @@
 <#
 .SYNOPSIS
     Collects the Windows Autopilot hardware hash, with preflight network checks,
-    a no-internet fallback, and optional upload to SharePoint or ServiceNow.
+    a no-internet fallback, and optional upload to ServiceNow.
 
 .DESCRIPTION
     Runs a short preflight (time sync, IPv6 state, connectivity), then collects
@@ -19,14 +19,15 @@
     IPv6 handling, two options:
       -PreferIPv4  : sets Tcpip6 DisabledComponents = 0x20. This does NOT disable
                      IPv6; it makes the prefix policy table prefer IPv4 over IPv6.
-                     IPv6 stays bound and functional, just deprioritised. This is
-                     Microsoft's recommended way to fix the OOBE/enrolment stall,
-                     and unlike 0xFF (full disable) it does not risk breaking
-                     components. Requires a REBOOT to take effect.
+                     IPv6 stays bound and functional, just deprioritised. Unlike
+                     0xFF (full disable) it does not risk breaking components.
+                     Requires a REBOOT to take effect.
       -DisableIPv6 : hard per-adapter unbind (ms_tcpip6). Immediate, no reboot,
                      but heavier-handed. Use only if -PreferIPv4 is insufficient.
 
-    -Prep enables -FixTime and -PreferIPv4 (the gentle, reboot-required path).
+    -Prep enables -FixTime and -PreferIPv4.
+
+    All console output is also written to a log file next to the CSV.
 
 .PARAMETER Prep
     Equivalent to -FixTime -PreferIPv4.
@@ -42,6 +43,7 @@
 
 .PARAMETER Online
     Register the device directly in Intune. Prompts for admin credentials.
+    Preferred where internet is available: no file to handle, no stored secret.
 
 .PARAMETER GroupTag
     Optional Autopilot group tag (online mode only).
@@ -50,17 +52,14 @@
     Full path for the CSV. Defaults to the script's own folder, then C:\Temp.
 
 .PARAMETER Upload
-    After a successful CSV, upload it to the target in -UploadTarget.
-
-.PARAMETER UploadTarget
-    SharePoint or ServiceNow. See the upload functions for the env vars / secrets
-    each one expects. Secrets are NEVER hardcoded here.
+    After a successful CSV, post the record to ServiceNow.
+    Requires AP_SNOW_* environment variables. Secrets are never hardcoded.
 
 .EXAMPLE
-    .\Get-AutopilotHash-Hardened-v3.ps1
-    .\Get-AutopilotHash-Hardened-v3.ps1 -Prep
-    .\Get-AutopilotHash-Hardened-v3.ps1 -Prep -Upload -UploadTarget ServiceNow
-    .\Get-AutopilotHash-Hardened-v3.ps1 -Online -GroupTag "Corp" -Prep
+    .\Get-AutopilotHash-v3.ps1
+    .\Get-AutopilotHash-v3.ps1 -Prep
+    .\Get-AutopilotHash-v3.ps1 -Prep -Upload
+    .\Get-AutopilotHash-v3.ps1 -Online -GroupTag "Corp" -Prep
 #>
 
 [CmdletBinding()]
@@ -72,15 +71,22 @@ param(
     [switch]$FixTime,
     [switch]$PreferIPv4,
     [switch]$DisableIPv6,
-    [switch]$Upload,
-    [ValidateSet('SharePoint','ServiceNow')]
-    [string]$UploadTarget
+    [switch]$Upload
 )
 
 $ErrorActionPreference = 'Stop'
 if ($Prep) { $FixTime = $true; $PreferIPv4 = $true }
 
-function Say  { param([string]$m,[string]$c='White') Write-Host $m -ForegroundColor $c }
+# --- Logging ----------------------------------------------------------------
+$script:LogFile = $null
+function Say {
+    param([string]$m,[string]$c='White')
+    Write-Host $m -ForegroundColor $c
+    if ($script:LogFile) {
+        try { "{0}  {1}" -f (Get-Date -Format 's'), $m |
+              Out-File -FilePath $script:LogFile -Append -Encoding utf8 } catch { }
+    }
+}
 function Head { param([string]$m) Write-Host ""; Say "--- $m " Cyan }
 
 Write-Host ""
@@ -97,17 +103,25 @@ if (-not $isAdmin) {
 }
 Say "Running elevated as: $($id.Name)" Green
 
-# --- 2. Preflight: network -------------------------------------------------
+# --- 2. Decide output location (early, so logging works from here on) -------
+if (-not $OutputPath) {
+    $dir = if ($PSScriptRoot) { $PSScriptRoot } else { 'C:\Temp' }
+    if (-not (Test-Path $dir)) { New-Item -Path $dir -ItemType Directory -Force | Out-Null }
+    $serialForName = (Get-CimInstance Win32_BIOS).SerialNumber.Trim() -replace '[\\/:*?"<>|]',''
+    $OutputPath = Join-Path $dir "AutopilotHash_$serialForName.csv"
+}
+$script:LogFile = [IO.Path]::ChangeExtension($OutputPath, '.log')
+Say "Output file: $OutputPath" Cyan
+Say "Log file   : $script:LogFile" Cyan
+
+# --- 3. Preflight: network --------------------------------------------------
 Head "Preflight"
 $rebootNeeded = $false
 
-# IPv6 state + handling
 $v6 = Get-NetAdapterBinding -ComponentID ms_tcpip6 -ErrorAction SilentlyContinue |
       Where-Object { $_.Enabled }
 
 if ($PreferIPv4) {
-    # DisabledComponents = 0x20 : prefer IPv4 over IPv6 (prefix policy table).
-    # IPv6 remains bound/functional; this only changes preference order.
     try {
         $tcp6 = 'HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip6\Parameters'
         if (-not (Test-Path $tcp6)) { New-Item -Path $tcp6 -Force | Out-Null }
@@ -117,7 +131,7 @@ if ($PreferIPv4) {
         } else {
             New-ItemProperty -Path $tcp6 -Name DisabledComponents -PropertyType DWord -Value 0x20 -Force | Out-Null
             Say "IPv6 set to prefer IPv4 (DisabledComponents=0x20)." Green
-            Say "  * Takes effect after REBOOT. IPv6 stays enabled, just deprioritised." Yellow
+            Say "  Takes effect after REBOOT. IPv6 stays enabled, just deprioritised." Yellow
             $rebootNeeded = $true
         }
     } catch {
@@ -185,22 +199,11 @@ if (-not $timeOk) {
     }
 }
 
-# Connectivity to the endpoints enrolment needs
 foreach ($h in 'login.microsoftonline.com','ztd.dds.microsoft.com','enterpriseregistration.windows.net') {
     $r = Test-NetConnection -ComputerName $h -Port 443 -WarningAction SilentlyContinue
     if ($r.TcpTestSucceeded) { Say "Reachable: $h" Green }
     else                     { Say "UNREACHABLE: $h" Red }
 }
-
-# --- 3. Decide output location ---------------------------------------------
-Head "Output"
-if (-not $OutputPath) {
-    $dir = if ($PSScriptRoot) { $PSScriptRoot } else { 'C:\Temp' }
-    if (-not (Test-Path $dir)) { New-Item -Path $dir -ItemType Directory -Force | Out-Null }
-    $serialForName = (Get-CimInstance Win32_BIOS).SerialNumber.Trim() -replace '[\\/:*?"<>|]',''
-    $OutputPath = Join-Path $dir "AutopilotHash_$serialForName.csv"
-}
-Say "Output file: $OutputPath" Cyan
 
 # --- 4. Try the official script (needs internet + PSGallery) ----------------
 Head "Hash collection"
@@ -285,83 +288,51 @@ Say "  Serial : $deviceSerial" Cyan
 Say "  Hash   : $($deviceHash.Substring(0,[Math]::Min(40,$deviceHash.Length)))..." Cyan
 Say "  File   : $OutputPath" Cyan
 
-# --- 7. Optional upload -----------------------------------------------------
-# Secrets are read from environment variables / credential store, never hardcoded.
-# Recommended: certificate-based Graph app auth for SharePoint, and a vaulted
-# service account for ServiceNow. Env vars below are a floor, not a best practice.
-
-function Send-ToSharePoint {
-    param([string]$FilePath)
-    # Requires an Entra app registration with Sites.Selected (or Sites.ReadWrite.All),
-    # granted admin consent. Prefer a certificate over a client secret in production.
-    $TenantId = $env:AP_SP_TENANTID
-    $ClientId = $env:AP_SP_CLIENTID
-    $Secret   = $env:AP_SP_SECRET          # <-- vault this; env var is the minimum
-    $SiteHost = $env:AP_SP_HOST            # e.g. contoso.sharepoint.com
-    $SitePath = $env:AP_SP_SITEPATH        # e.g. /sites/ITAssets
-    $LibPath  = $env:AP_SP_LIBPATH         # e.g. AutopilotHashes (folder in the default drive)
-
-    foreach ($v in 'TenantId','ClientId','Secret','SiteHost','SitePath','LibPath') {
-        if (-not (Get-Variable $v -ValueOnly)) { throw "SharePoint upload: missing $v (set AP_SP_* env vars)." }
-    }
-
-    $tok = Invoke-RestMethod -Method Post `
-        -Uri "https://login.microsoftonline.com/$TenantId/oauth2/v2.0/token" `
-        -Body @{ client_id=$ClientId; scope='https://graph.microsoft.com/.default';
-                 client_secret=$Secret; grant_type='client_credentials' }
-    $hdr = @{ Authorization = "Bearer $($tok.access_token)" }
-
-    $site = Invoke-RestMethod -Headers $hdr `
-        -Uri ("https://graph.microsoft.com/v1.0/sites/{0}:{1}" -f $SiteHost,$SitePath)
-
-    $name = Split-Path $FilePath -Leaf
-    $uri  = "https://graph.microsoft.com/v1.0/sites/$($site.id)/drive/root:/$LibPath/$name:/content"
-    Invoke-RestMethod -Method Put -Headers $hdr -Uri $uri -InFile $FilePath -ContentType 'text/csv' | Out-Null
-    Say "  Uploaded to SharePoint: $SitePath/$LibPath/$name" Green
-}
-
+# --- 7. Optional ServiceNow upload ------------------------------------------
+# Secrets come from environment variables, never from this file. Scope the
+# ServiceNow account to a single staging table so a leaked credential is
+# worth as little as possible.
 function Send-ToServiceNow {
     param([string]$FilePath,[string]$Serial,[string]$Hash)
-    # Table API record + Attachment API file. Basic auth header built manually so
-    # this works on Windows PowerShell 5.1 (the OOBE default).
-    $Instance = $env:AP_SNOW_INSTANCE      # e.g. mountainside  (from *.service-now.com)
-    $Table    = $env:AP_SNOW_TABLE         # e.g. u_autopilot_import  (a staging table)
+
+    $Instance = $env:AP_SNOW_INSTANCE   # e.g. mountainside  (from *.service-now.com)
+    $Table    = $env:AP_SNOW_TABLE      # e.g. u_autopilot_import
     $User     = $env:AP_SNOW_USER
-    $Pass     = $env:AP_SNOW_PASS          # <-- vault this
+    $Pass     = $env:AP_SNOW_PASS
+
     foreach ($v in 'Instance','Table','User','Pass') {
-        if (-not (Get-Variable $v -ValueOnly)) { throw "ServiceNow upload: missing $v (set AP_SNOW_* env vars)." }
+        if (-not (Get-Variable $v -ValueOnly)) {
+            throw "ServiceNow upload: missing $v (set the AP_SNOW_* environment variables)."
+        }
     }
 
     $b64  = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes("$User`:$Pass"))
     $hdr  = @{ Authorization = "Basic $b64" }
     $base = "https://$Instance.service-now.com/api/now"
 
-    $body = @{ serial_number = $Serial; u_hardware_hash = $Hash;
-               u_source = "Get-AutopilotHash v3" } | ConvertTo-Json
-    $rec  = Invoke-RestMethod -Method Post -Uri "$base/table/$Table" `
-             -Headers $hdr -ContentType 'application/json' -Body $body
+    $body = @{ serial_number   = $Serial
+               u_hardware_hash = $Hash
+               u_source        = 'Get-AutopilotHash v3' } | ConvertTo-Json
+
+    $rec   = Invoke-RestMethod -Method Post -Uri "$base/table/$Table" `
+               -Headers $hdr -ContentType 'application/json' -Body $body
     $sysId = $rec.result.sys_id
 
     $name = Split-Path $FilePath -Leaf
     Invoke-RestMethod -Method Post `
         -Uri "$base/attachment/file?table_name=$Table&table_sys_id=$sysId&file_name=$name" `
         -Headers $hdr -ContentType 'text/csv' -InFile $FilePath | Out-Null
-    Say "  Wrote ServiceNow record $sysId and attached $name" Green
+
+    Say "  ServiceNow record $sysId created, $name attached." Green
 }
 
 if ($Upload) {
-    if (-not $UploadTarget) { Say "-Upload set but no -UploadTarget; skipping." Yellow }
-    else {
-        Head "Upload"
-        try {
-            switch ($UploadTarget) {
-                'SharePoint' { Send-ToSharePoint -FilePath $OutputPath }
-                'ServiceNow' { Send-ToServiceNow -FilePath $OutputPath -Serial $deviceSerial -Hash $deviceHash }
-            }
-        } catch {
-            Say "Upload failed: $($_.Exception.Message)" Red
-            Say "CSV is still on disk at $OutputPath for manual handling." Yellow
-        }
+    Head "Upload"
+    try {
+        Send-ToServiceNow -FilePath $OutputPath -Serial $deviceSerial -Hash $deviceHash
+    } catch {
+        Say "Upload failed: $($_.Exception.Message)" Red
+        Say "CSV is still on disk at $OutputPath for manual handling." Yellow
     }
 }
 
