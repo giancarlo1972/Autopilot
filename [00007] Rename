@@ -1,22 +1,3 @@
-
-HKLM\SYSTEM\CurrentControlSet\Services\Tcpip6\Parameters
-DisabledComponents (DWORD) = 0x20
-
-===
-
-$type    = "LT"                                          # LT / DT / SV
-$serial  = (Get-CimInstance Win32_BIOS).SerialNumber
-$newName = "$type$serial"
-
-if ($newName.Length -gt 15) { $newName = $newName.Substring(0,15) }
-
-Write-Host "Renaming $env:COMPUTERNAME -> $newName"
-Rename-Computer -NewName $newName -DomainCredential MOUNTAINSIDE\gpereira -Restart
-
-
-===
-
-
 <#
 .SYNOPSIS
     Renames a Windows device to <TYPE><SERIAL>, detecting laptop / desktop /
@@ -185,5 +166,3 @@ else {
     Write-Log "WhatIf: no change made." Yellow
     exit 0
 }
-
-
