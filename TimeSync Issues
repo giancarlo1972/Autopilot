@@ -4,7 +4,17 @@ w32tm /resync /force
 w32tm /query /status
 
 
+====
 
+w32tm /query /source
+w32tm /query /status
+w32tm /stripchart /computer:%LOGONSERVER:\\=% /samples:3 /dataonly
+nltest /sc_verify:mountainside.local
+
+
+
+
+====
 
 w32tm /stripchart /computer:time.windows.com /samples:3
 
