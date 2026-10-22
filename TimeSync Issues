@@ -1,3 +1,11 @@
+Set-TimeZone -Id 'Eastern Standard Time'
+$d = (Invoke-WebRequest http://www.msftconnecttest.com/connecttest.txt -Method Head -UseBasicParsing).Headers['Date']
+Set-Date ([DateTimeOffset]::Parse("$d").LocalDateTime)
+Get-Date
+
+
+
+
 # --- Time fix: make sure w32time is running before resync ---
 try {
     Set-Service w32time -StartupType Automatic -ErrorAction Stop
