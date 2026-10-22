@@ -1,13 +1,14 @@
 <#
 .SYNOPSIS
     Collects the Windows Autopilot hardware hash, with preflight network checks,
-    a no-internet fallback, and optional upload to ServiceNow.
+    a no-internet fallback, direct Intune Autopilot registration with
+    confirmation, and optional upload to ServiceNow.
 
 .DESCRIPTION
     Runs a short preflight (time sync, IPv6 state, connectivity), then collects
-    the hardware hash. Uses the official Get-WindowsAutopilotInfo script when the
-    PowerShell Gallery is reachable, otherwise reads the hash directly from WMI
-    with no downloads.
+    the hardware hash directly from WMI (no downloads) and always writes a CSV.
+    With -Online it then imports the device into Intune Autopilot through Graph
+    and waits until the device is actually listed before reporting success.
 
     Preflight matters at OOBE: clock skew beyond a few minutes breaks Entra join
     and Intune enrolment, and a half-working IPv6 path causes connections to stall
@@ -46,11 +47,15 @@
     Unbind IPv6 from all physical adapters (immediate, no reboot).
 
 .PARAMETER Online
-    Register the device directly in Intune. Prompts for admin credentials.
-    Preferred where internet is available: no file to handle, no stored secret.
+    Import the device into Intune Autopilot via Graph, then confirm it is listed.
+    Sign-in uses a device code shown on screen (works at OOBE, no modules needed). Needs an account with
+    DeviceManagementServiceConfig.ReadWrite.All (Intune admin).
+
+.PARAMETER TenantId
+    Entra tenant for -Online. Defaults to Mountainside.
 
 .PARAMETER GroupTag
-    Optional Autopilot group tag (online mode only).
+    Optional Autopilot group tag (applied with -Online).
 
 .PARAMETER OutputPath
     Full path for the CSV. Defaults to the script's own folder, then C:\Temp.
@@ -60,10 +65,10 @@
     Requires AP_SNOW_* environment variables. Secrets are never hardcoded.
 
 .EXAMPLE
-    .\Get-AutopilotHash-v3.ps1
-    .\Get-AutopilotHash-v3.ps1 -Prep
-    .\Get-AutopilotHash-v3.ps1 -Prep -Upload
-    .\Get-AutopilotHash-v3.ps1 -Online -GroupTag "Corp" -Prep
+    .\Get-AutopilotHash-v4.ps1
+    .\Get-AutopilotHash-v4.ps1 -Prep
+    .\Get-AutopilotHash-v4.ps1 -Prep -Upload
+    .\Get-AutopilotHash-v4.ps1 -Online -GroupTag "Corp" -Prep
 #>
 
 [CmdletBinding()]
@@ -96,7 +101,7 @@ function Say {
 function Head { param([string]$m) Write-Host ""; Say "--- $m " Cyan }
 
 Write-Host ""
-Say "Windows Autopilot Hardware Hash Collection (v3)" Cyan
+Say "Windows Autopilot Hardware Hash Collection (v4)" Cyan
 
 # --- 1. Elevation check -----------------------------------------------------
 $id = [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -341,30 +346,81 @@ Say "  Hash   : $($deviceHash.Substring(0,[Math]::Min(40,$deviceHash.Length)))..
 Say "  File   : $OutputPath" Cyan
 
 # --- 6b. Register in Intune (Autopilot) and CONFIRM it landed ----------------
-# Direct Graph import - the same API the portal's CSV import uses. Uses only the
-# Microsoft.Graph.Authentication module (Invoke-MgGraphRequest), so it is not
-# affected by Graph sub-module version mismatches. Device-code sign-in works at
-# OOBE, where no browser is available.
+# Pure REST: device-code sign-in + Graph calls with Invoke-RestMethod.
+# No Graph PowerShell module - Connect-MgGraph crashes at OOBE ("An error
+# occurred when writing to a listener") because the setup profile is incomplete.
+# Client ID = Microsoft Graph Command Line Tools (already consented in the tenant).
+$script:GraphToken = $null
+
+function Get-GraphTokenDeviceCode {
+    param([string]$Tenant,[string]$Scope)
+    $cid = '14d82eec-204b-4c2f-b7e8-296a70dab67e'
+    [Net.ServicePointManager]::SecurityProtocol =
+        [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+
+    $dc = Invoke-RestMethod -Method Post -UseBasicParsing `
+            -Uri "https://login.microsoftonline.com/$Tenant/oauth2/v2.0/devicecode" `
+            -Body @{ client_id = $cid; scope = $Scope }
+
+    Write-Host ""
+    Say "=================================================================" Yellow
+    Say "  On your phone or another PC, open:  $($dc.verification_uri)" Yellow
+    Say "  Enter this code:                    $($dc.user_code)" Green
+    Say "  Sign in with an Intune admin account. Waiting..." Yellow
+    Say "=================================================================" Yellow
+    Write-Host ""
+
+    $interval = [int]$dc.interval; if ($interval -lt 5) { $interval = 5 }
+    $deadline = (Get-Date).AddSeconds([int]$dc.expires_in)
+    while ((Get-Date) -lt $deadline) {
+        Start-Sleep -Seconds $interval
+        try {
+            $tok = Invoke-RestMethod -Method Post -UseBasicParsing `
+                     -Uri "https://login.microsoftonline.com/$Tenant/oauth2/v2.0/token" `
+                     -Body @{ grant_type  = 'urn:ietf:params:oauth:grant-type:device_code'
+                              client_id   = $cid
+                              device_code = $dc.device_code }
+            Say "Signed in." Green
+            return $tok.access_token
+        } catch {
+            $err = $null
+            try { $err = ($_.ErrorDetails.Message | ConvertFrom-Json) } catch { }
+            switch ($err.error) {
+                'authorization_pending' { continue }
+                'slow_down'             { $interval += 5; continue }
+                'authorization_declined'{ throw "Sign-in was declined." }
+                'expired_token'         { throw "The code expired before sign-in completed. Re-run the script." }
+                default {
+                    $msg = if ($err) { "$($err.error): $($err.error_description)" } else { $_.Exception.Message }
+                    throw "Sign-in failed - $msg"
+                }
+            }
+        }
+    }
+    throw "The code expired before sign-in completed. Re-run the script."
+}
+
+function Invoke-Graph {
+    param([string]$Method,[string]$Path,$Body)
+    $p = @{ Method = $Method; Uri = "https://graph.microsoft.com/$Path"; UseBasicParsing = $true
+            Headers = @{ Authorization = "Bearer $script:GraphToken" } }
+    if ($null -ne $Body) { $p.Body = ($Body | ConvertTo-Json -Depth 5); $p.ContentType = 'application/json' }
+    try { Invoke-RestMethod @p }
+    catch {
+        $detail = $_.ErrorDetails.Message
+        throw "Graph $Method $Path failed: $($_.Exception.Message) $detail"
+    }
+}
+
 function Register-AutopilotDevice {
     param([string]$Serial,[string]$Hash,[string]$Tag,[string]$Tenant)
-
     $ErrorActionPreference = 'Stop'
-    if (-not (Get-Module -ListAvailable Microsoft.Graph.Authentication)) {
-        Say "Installing Microsoft.Graph.Authentication..." Yellow
-        [Net.ServicePointManager]::SecurityProtocol =
-            [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
-        if (-not (Get-PackageProvider -ListAvailable NuGet -ErrorAction SilentlyContinue)) {
-            Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force | Out-Null
-        }
-        Install-Module Microsoft.Graph.Authentication -Scope AllUsers -Force -AllowClobber
-    }
-    Import-Module Microsoft.Graph.Authentication
 
-    Say "Sign in with an Intune admin account (device code - use any other device's browser)." Yellow
-    Connect-MgGraph -TenantId $Tenant -Scopes 'DeviceManagementServiceConfig.ReadWrite.All' -UseDeviceCode -NoWelcome
+    $script:GraphToken = Get-GraphTokenDeviceCode -Tenant $Tenant `
+        -Scope 'https://graph.microsoft.com/DeviceManagementServiceConfig.ReadWrite.All'
 
     $apBase = 'beta/deviceManagement/windowsAutopilotDeviceIdentities'
-    $find   = { (Invoke-MgGraphRequest GET "$apBase`?`$filter=contains(serialNumber,'$Serial')").value }
+    $find   = { (Invoke-Graph GET "$apBase`?`$filter=contains(serialNumber,'$Serial')").value }
 
     # Already registered? Report and stop - re-importing a known device just errors.
     $existing = & $find
@@ -384,16 +440,14 @@ function Register-AutopilotDevice {
         groupTag           = $(if ($Tag) { $Tag } else { '' })
         productKey         = ''
         state              = @{ deviceImportStatus = 'pending'; deviceRegistrationId = ''; deviceErrorCode = 0; deviceErrorName = '' }
-    } | ConvertTo-Json -Depth 4
-    $imp = Invoke-MgGraphRequest POST 'beta/deviceManagement/importedWindowsAutopilotDeviceIdentities' `
-             -Body $body -ContentType 'application/json'
-    Say "Import submitted (id $($imp.id)). Waiting for Intune to process it..." Yellow
+    }
+    $imp = Invoke-Graph POST 'beta/deviceManagement/importedWindowsAutopilotDeviceIdentities' $body
+    Say "Import submitted. Waiting for Intune to process it (usually 1-5 min)..." Yellow
 
-    # Wait for the import to finish (usually 1-5 min)
     $deadline = (Get-Date).AddMinutes(15)
     do {
         Start-Sleep -Seconds 20
-        $s = (Invoke-MgGraphRequest GET "beta/deviceManagement/importedWindowsAutopilotDeviceIdentities/$($imp.id)").state
+        $s = (Invoke-Graph GET "beta/deviceManagement/importedWindowsAutopilotDeviceIdentities/$($imp.id)").state
         Say "  Import status: $($s.deviceImportStatus)"
     } while ($s.deviceImportStatus -notin 'complete','error' -and (Get-Date) -lt $deadline)
 
@@ -410,9 +464,9 @@ function Register-AutopilotDevice {
         return $false
     }
 
-    # Import done -> nudge an Autopilot sync and confirm the device is listed
-    try { Invoke-MgGraphRequest POST 'beta/deviceManagement/windowsAutopilotSettings/sync' | Out-Null } catch { }
-    Invoke-MgGraphRequest DELETE "beta/deviceManagement/importedWindowsAutopilotDeviceIdentities/$($imp.id)" -ErrorAction SilentlyContinue | Out-Null
+    # Import done -> nudge an Autopilot sync, clean up the import record, confirm listing
+    try { Invoke-Graph POST 'beta/deviceManagement/windowsAutopilotSettings/sync' | Out-Null } catch { }
+    try { Invoke-Graph DELETE "beta/deviceManagement/importedWindowsAutopilotDeviceIdentities/$($imp.id)" | Out-Null } catch { }
 
     $deadline = (Get-Date).AddMinutes(15)
     do {
@@ -441,7 +495,7 @@ if ($Online) {
         Say "Intune registration failed: $($_.Exception.Message)" Red
         Say "CSV is on disk at $OutputPath for manual import." Yellow
     } finally {
-        try { Disconnect-MgGraph -ErrorAction SilentlyContinue | Out-Null } catch { }
+        $script:GraphToken = $null
     }
 }
 
@@ -469,7 +523,7 @@ function Send-ToServiceNow {
 
     $body = @{ serial_number   = $Serial
                u_hardware_hash = $Hash
-               u_source        = 'Get-AutopilotHash v3' } | ConvertTo-Json
+               u_source        = 'Get-AutopilotHash v4' } | ConvertTo-Json
 
     $rec   = Invoke-RestMethod -Method Post -Uri "$base/table/$Table" `
                -Headers $hdr -ContentType 'application/json' -Body $body
@@ -494,7 +548,10 @@ if ($Upload) {
 }
 
 Write-Host ""
-Say "Next: Intune > Devices > Enrollment > Windows Autopilot > Devices > Import" Yellow
+if (-not $Online) {
+    Say "Next: Intune > Devices > Enrollment > Windows Autopilot > Devices > Import" Yellow
+    Say "  (or re-run with -Online to register it directly)" Yellow
+}
 Say "Wait for Profile status = Assigned before booting the machine into setup." Yellow
 if ($rebootNeeded) { Say "Reboot pending: the prefer-IPv4 change applies after restart." Yellow }
 Write-Host ""
