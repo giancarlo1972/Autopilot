@@ -33,7 +33,11 @@
     Equivalent to -FixTime -PreferIPv4.
 
 .PARAMETER FixTime
-    Configure an external NTP source and force a resync.
+    Set the time zone, start the Windows Time service, configure NTP and force a
+    resync. If NTP is blocked, sets the clock from a plain-HTTP Date header.
+
+.PARAMETER TimeZone
+    Time zone applied by -FixTime. Default 'Eastern Standard Time'.
 
 .PARAMETER PreferIPv4
     Set DisabledComponents = 0x20 (prefer IPv4 over IPv6). Requires reboot.
@@ -71,7 +75,8 @@ param(
     [switch]$FixTime,
     [switch]$PreferIPv4,
     [switch]$DisableIPv6,
-    [switch]$Upload
+    [switch]$Upload,
+    [string]$TimeZone = 'Eastern Standard Time'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -162,50 +167,131 @@ else {
 }
 
 # Time
-$timeOk = $false
-$isDomain = (Get-CimInstance Win32_ComputerSystem).PartOfDomain
-if ($isDomain) { Say "Machine is domain-joined: time must come from the domain controllers." Yellow }
-try {
-    $status = w32tm /query /status 2>&1
-    $src    = (w32tm /query /source 2>&1)
-    Say "Time source: $src"
-    Say "Local time : $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss zzz')"
-    if ($status -match 'Last Successful Sync Time:\s*(.+)') {
-        Say "Last sync  : $($Matches[1].Trim())"
+# Two independent checks, because either one alone can lie:
+#   1. Is w32time running and synced to a real source? (w32tm prints its errors to
+#      stdout, so "The service has not been started (0x80070426)" used to be read
+#      as a valid source name and the fix was skipped.)
+#   2. How far off is the clock really? Measured against the Date header of a
+#      plain-HTTP endpoint. Plain HTTP on purpose: HTTPS fails certificate validity
+#      checks when the clock is badly wrong, which is exactly the case we care about.
+$MaxSkewSec = 120
+
+function Get-NetUtc {
+    foreach ($u in 'http://www.msftconnecttest.com/connecttest.txt','http://www.google.com/generate_204') {
+        try {
+            $r = Invoke-WebRequest -Uri $u -Method Head -UseBasicParsing -TimeoutSec 8 -ErrorAction Stop
+            $d = $r.Headers['Date']; if ($d -is [array]) { $d = $d[0] }
+            if ($d) { return [DateTimeOffset]::Parse($d, [Globalization.CultureInfo]::InvariantCulture).UtcDateTime }
+        } catch { }
     }
-    if ($src -notmatch 'Local CMOS Clock|Free-running') { $timeOk = $true }
-    if ($isDomain -and $src -match 'time\.windows\.com') {
-        Say "  WARNING: domain-joined but syncing from the internet, not a DC." Red
-        $timeOk = $false
-    }
-} catch {
-    Say "Time service not responding: $($_.Exception.Message)" Yellow
+    return $null
 }
 
+function Get-TimeState {
+    $ErrorActionPreference = 'Continue'   # native stderr must not throw under the script-wide 'Stop'
+    $svc = Get-Service w32time -ErrorAction SilentlyContinue
+    $st  = [ordered]@{
+        Service = if ($svc) { "$($svc.Status) (startup: $($svc.StartType))" } else { 'not present' }
+        Running = [bool]($svc -and $svc.Status -eq 'Running')
+        Source  = $null
+        LastSync= $null
+        SkewSec = $null
+    }
+    if ($st.Running) {
+        $src = (& w32tm /query /source 2>&1 | Out-String).Trim()
+        if ($LASTEXITCODE -eq 0 -and $src -notmatch 'error|0x8') { $st.Source = $src }
+        $status = (& w32tm /query /status 2>&1 | Out-String)
+        if ($status -match 'Last Successful Sync Time:\s*(.+)') { $st.LastSync = $Matches[1].Trim() }
+    }
+    $net = Get-NetUtc
+    if ($net) { $st.SkewSec = [int][math]::Round(((Get-Date).ToUniversalTime() - $net).TotalSeconds) }
+    [pscustomobject]$st
+}
+
+function Show-TimeState($t) {
+    Say "Time service: $($t.Service)"
+    Say "Time source : $(if ($t.Source) { $t.Source } else { '(none - service stopped or query failed)' })"
+    if ($t.LastSync) { Say "Last sync   : $($t.LastSync)" }
+    Say "Time zone   : $((Get-TimeZone).Id)"
+    Say "Local time  : $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss zzz')"
+    Say "Clock skew  : $(if ($null -ne $t.SkewSec) { "$($t.SkewSec)s vs internet time" } else { 'unknown (no HTTP time reference reachable)' })"
+}
+
+function Test-TimeOk($t) {
+    if (-not $t.Running -or -not $t.Source) { return $false }
+    if ($t.Source -match 'Local CMOS Clock|Free-running') { return $false }
+    if ($null -ne $t.SkewSec -and [math]::Abs($t.SkewSec) -gt $MaxSkewSec) { return $false }
+    if ($isDomain -and $t.Source -match 'time\.windows\.com') {
+        Say "  WARNING: domain-joined but syncing from the internet, not a DC." Red
+        return $false
+    }
+    return $true
+}
+
+$isDomain = (Get-CimInstance Win32_ComputerSystem).PartOfDomain
+if ($isDomain) { Say "Machine is domain-joined: time must come from the domain controllers." Yellow }
+
+$t = Get-TimeState
+Show-TimeState $t
+$timeOk = Test-TimeOk $t
+
 if (-not $timeOk) {
-    Say "Time is not synchronised to an external source." Yellow
+    if (-not $t.Running) { Say "Windows Time service is not running - the clock is not being synced at all." Yellow }
+    else                 { Say "Time is not synchronised to an external source, or the clock is off." Yellow }
     Say "  Clock skew beyond ~5 minutes breaks Entra join and enrolment." Yellow
+
     if ($FixTime) {
+        $ErrorActionPreference = 'Continue'
         try {
-            Set-Service w32time -StartupType Automatic -ErrorAction SilentlyContinue
-            Start-Service w32time -ErrorAction SilentlyContinue
-            # /syncfromflags:ALL = use the domain hierarchy (DCs) whenever the machine is
-            # domain-joined, and fall back to time.windows.com only while it is not.
-            # Do NOT use /syncfromflags:manual here: that setting survives the hybrid join
-            # and pins the PC to internet time instead of the DC, which breaks Kerberos.
-            w32tm /config /manualpeerlist:"time.windows.com,0x9" /syncfromflags:ALL /update | Out-Null
-            Restart-Service w32time -ErrorAction SilentlyContinue
-            Start-Sleep -Seconds 3
-            w32tm /resync /force | Out-Null
-            Start-Sleep -Seconds 3
-            Say "  Resynced. Source is now: $(w32tm /query /source)" Green
-            Say "  Local time: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')" Green
+            if ($TimeZone -and (Get-TimeZone).Id -ne $TimeZone) {
+                Set-TimeZone -Id $TimeZone -ErrorAction Stop
+                Say "  Time zone set to $TimeZone" Green
+            }
+        } catch { Say "  Could not set time zone '$TimeZone': $($_.Exception.Message)" Red }
+
+        try {
+            Set-Service w32time -StartupType Automatic -ErrorAction Stop
+            if ((Get-Service w32time).Status -ne 'Running') { Start-Service w32time -ErrorAction Stop }
+            Say "  Windows Time service started." Green
         } catch {
-            Say "  Time sync failed: $($_.Exception.Message)" Red
-            Say "  Check that outbound UDP 123 is permitted." Yellow
+            Say "  Could not start Windows Time service: $($_.Exception.Message)" Red
         }
+
+        # /syncfromflags:ALL = use the domain hierarchy (DCs) whenever the machine is
+        # domain-joined, and fall back to time.windows.com only while it is not.
+        # Do NOT use /syncfromflags:manual here: that setting survives the hybrid join
+        # and pins the PC to internet time instead of the DC, which breaks Kerberos.
+        & w32tm /config /manualpeerlist:"time.windows.com,0x9" /syncfromflags:ALL /update 2>&1 | Out-Null
+        Restart-Service w32time -ErrorAction SilentlyContinue
+        Start-Sleep -Seconds 3
+        $resync = (& w32tm /resync /force 2>&1 | Out-String).Trim()
+        if ($LASTEXITCODE -ne 0) {
+            Say "  NTP resync failed: $resync" Yellow
+            Say "  (outbound UDP 123 may be blocked - will fall back to HTTP time)" Yellow
+        }
+        Start-Sleep -Seconds 3
+
+        # Fallback: NTP blocked or slow -> set the clock directly from internet time.
+        $t = Get-TimeState
+        if ($null -ne $t.SkewSec -and [math]::Abs($t.SkewSec) -gt $MaxSkewSec) {
+            $net = Get-NetUtc
+            if ($net) {
+                Set-Date -Date $net.ToLocalTime() | Out-Null
+                Say "  Clock set from HTTP time (was off by $($t.SkewSec)s)." Green
+                $t = Get-TimeState
+            }
+        }
+        $ErrorActionPreference = 'Stop'
+
+        Say "  After fix:" Cyan
+        Show-TimeState $t
+        if (Test-TimeOk $t) { Say "  Time OK." Green }
+        elseif ($null -ne $t.SkewSec -and [math]::Abs($t.SkewSec) -le $MaxSkewSec) {
+            Say "  Clock is correct now; NTP source not confirmed yet (it will settle after setup)." Yellow
+        }
+        else { Say "  Time is STILL wrong - do not continue to enrolment until fixed." Red }
     } else {
-        Say "  (run with -FixTime to configure NTP and resync)" Yellow
+        Say "  (run with -FixTime or -Prep to start the service, resync and correct the clock)" Yellow
     }
 }
 
