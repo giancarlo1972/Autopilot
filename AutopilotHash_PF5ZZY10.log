@@ -1,0 +1,173 @@
+﻿2026-10-21T17:49:31  Output file: C:\temp\AutopilotHash_PF5ZZY10.csv
+2026-10-21T17:49:31  Log file   : C:\temp\AutopilotHash_PF5ZZY10.log
+2026-10-21T17:49:31  --- Preflight 
+2026-10-21T17:49:33  IPv6 enabled on: Ethernet, Wi-Fi 2, Wi-Fi 3, Wi-Fi 5, Bluetooth Network Connection, Wi-Fi, Wi-Fi 4
+2026-10-21T17:49:33    (run with -PreferIPv4 [recommended] or -DisableIPv6)
+2026-10-21T17:49:33  Time source: The following error occurred: The service has not been started. (0x80070426)
+2026-10-21T17:49:33  Local time : 2026-10-21 17:49:33 -07:00
+2026-10-21T17:49:37  Reachable: login.microsoftonline.com
+2026-10-21T17:49:38  Reachable: ztd.dds.microsoft.com
+2026-10-21T17:49:38  Reachable: enterpriseregistration.windows.net
+2026-10-21T17:49:38  --- Hash collection 
+2026-10-21T17:49:56  Get-WindowsAutopilotInfo installed.
+2026-10-21T17:49:56  --- Result 
+2026-10-21T17:49:56  SUCCESS
+2026-10-21T17:49:56    Serial : PF5ZZY10
+2026-10-21T17:49:56    Hash   : T0HlBAEAHAAAAAoARRr0ZQAACgD1GlhmNBpsMuQC...
+2026-10-21T17:49:56    File   : C:\temp\AutopilotHash_PF5ZZY10.csv
+2026-10-21T17:49:56  Next: Intune > Devices > Enrollment > Windows Autopilot > Devices > Import
+2026-10-21T17:49:56  Wait for Profile status = Assigned before booting the machine into setup.
+2026-10-21T18:15:14  Output file: C:\temp\AutopilotHash_PF5ZZY10.csv
+2026-10-21T18:15:14  Log file   : C:\temp\AutopilotHash_PF5ZZY10.log
+2026-10-21T18:15:14  --- Preflight 
+2026-10-21T18:15:16  IPv6 enabled on: Ethernet, Wi-Fi 2, Wi-Fi 3, Wi-Fi 5, Bluetooth Network Connection, Wi-Fi, Wi-Fi 4
+2026-10-21T18:15:16    (run with -PreferIPv4 [recommended] or -DisableIPv6)
+2026-10-21T18:15:16  Time source: The following error occurred: The service has not been started. (0x80070426)
+2026-10-21T18:15:16  Local time : 2026-10-21 18:15:16 -07:00
+2026-10-21T18:15:19  Reachable: login.microsoftonline.com
+2026-10-21T18:15:20  Reachable: ztd.dds.microsoft.com
+2026-10-21T18:15:20  Reachable: enterpriseregistration.windows.net
+2026-10-21T18:15:20  --- Hash collection 
+2026-10-21T18:15:23  Get-WindowsAutopilotInfo already present.
+2026-10-21T18:15:23  FAILED: The term 'Get-WindowsAutopilotInfo' is not recognized as the name of a cmdlet, function, script file, or operable program. Check the spelling of the name, or if a path was included, verify that the path is correct and try again.
+2026-10-21T18:29:05  Output file: C:\temp\AutopilotHash_PF5ZZY10.csv
+2026-10-21T18:29:05  Log file   : C:\temp\AutopilotHash_PF5ZZY10.log
+2026-10-21T18:29:05  --- Preflight 
+2026-10-21T18:29:06  IPv6 enabled on: Ethernet, Wi-Fi 2, Wi-Fi 3, Wi-Fi 5, Bluetooth Network Connection, Wi-Fi, Wi-Fi 4
+2026-10-21T18:29:06    (run with -PreferIPv4 [recommended] or -DisableIPv6)
+2026-10-21T18:29:07  Time source: time.nist.gov,0x8 
+2026-10-21T18:29:07  Local time : 2026-10-21 18:29:07 -07:00
+2026-10-21T18:29:07  Time service not responding: Cannot index into a null array.
+2026-10-21T18:29:07  Time is not synchronised to an external source.
+2026-10-21T18:29:07    Clock skew beyond ~5 minutes breaks Entra join and enrolment.
+2026-10-21T18:29:07    (run with -FixTime to configure NTP and resync)
+2026-10-21T18:29:09  Reachable: login.microsoftonline.com
+2026-10-21T18:29:10  Reachable: ztd.dds.microsoft.com
+2026-10-21T18:29:10  Reachable: enterpriseregistration.windows.net
+2026-10-21T18:29:10  --- Hash collection 
+2026-10-21T18:29:12  Get-WindowsAutopilotInfo already present.
+2026-10-21T18:29:12  FAILED: The term 'Get-WindowsAutopilotInfo' is not recognized as the name of a cmdlet, function, script file, or operable program. Check the spelling of the name, or if a path was included, verify that the path is correct and try again.
+2026-10-21T18:30:17  Output file: C:\temp\AutopilotHash_PF5ZZY10.csv
+2026-10-21T18:30:17  Log file   : C:\temp\AutopilotHash_PF5ZZY10.log
+2026-10-21T18:30:17  --- Preflight 
+2026-10-21T18:30:18  IPv6 set to prefer IPv4 (DisabledComponents=0x20).
+2026-10-21T18:30:18    Takes effect after REBOOT. IPv6 stays enabled, just deprioritised.
+2026-10-21T18:30:19  Time source: time.nist.gov,0x8 
+2026-10-21T18:30:19  Local time : 2026-10-21 18:30:19 -07:00
+2026-10-21T18:30:19  Time service not responding: Cannot index into a null array.
+2026-10-21T18:30:19  Time is not synchronised to an external source.
+2026-10-21T18:30:19    Clock skew beyond ~5 minutes breaks Entra join and enrolment.
+2026-10-21T18:30:25    Resynced. Source is now: time.windows.com,0x9 
+2026-10-21T18:30:25    Local time: 2026-10-21 18:30:25
+2026-10-21T18:30:29  Reachable: login.microsoftonline.com
+2026-10-21T18:30:29  Reachable: ztd.dds.microsoft.com
+2026-10-21T18:30:30  Reachable: enterpriseregistration.windows.net
+2026-10-21T18:30:30  --- Hash collection 
+2026-10-21T18:30:33  Get-WindowsAutopilotInfo already present.
+2026-10-21T18:30:33  FAILED: The term 'Get-WindowsAutopilotInfo' is not recognized as the name of a cmdlet, function, script file, or operable program. Check the spelling of the name, or if a path was included, verify that the path is correct and try again.
+2026-10-22T10:32:15  Output file: C:\temp\AutopilotHash_PF5ZZY10.csv
+2026-10-22T10:32:15  Log file   : C:\temp\AutopilotHash_PF5ZZY10.log
+2026-10-22T10:32:15  --- Preflight 
+2026-10-22T10:32:17  IPv6 already set to prefer IPv4 (DisabledComponents=0x20).
+2026-10-22T10:32:18  Time service: Running (startup: Automatic)
+2026-10-22T10:32:18  Time source : time.windows.com,0x9
+2026-10-22T10:32:18  Last sync   : 10/22/2026 6:36:30 AM
+2026-10-22T10:32:18  Time zone   : Eastern Standard Time
+2026-10-22T10:32:18  Local time  : 2026-10-22 10:32:18 -04:00
+2026-10-22T10:32:18  Clock skew  : 1s vs internet time
+2026-10-22T10:32:22  Reachable: login.microsoftonline.com
+2026-10-22T10:32:22  Reachable: ztd.dds.microsoft.com
+2026-10-22T10:32:23  Reachable: enterpriseregistration.windows.net
+2026-10-22T10:32:23  --- Hash collection 
+2026-10-22T10:32:23  --- Result 
+2026-10-22T10:32:23  SUCCESS
+2026-10-22T10:32:23    Serial : PF5ZZY10
+2026-10-22T10:32:23    Hash   : T0HlBAEAHAAAAAoARRr0ZQAACgD1Glhm99psMvAC...
+2026-10-22T10:32:23    File   : C:\temp\AutopilotHash_PF5ZZY10.csv
+2026-10-22T10:32:23  --- Intune registration 
+2026-10-22T10:32:23  Installing Microsoft.Graph.Authentication...
+2026-10-22T10:32:37  Sign in with an Intune admin account (device code - use any other device's browser).
+2026-10-22T10:34:38  Intune registration failed: An error occurred when writing to a listener.
+2026-10-22T10:34:38  CSV is on disk at C:\temp\AutopilotHash_PF5ZZY10.csv for manual import.
+2026-10-22T10:34:38  Next: Intune > Devices > Enrollment > Windows Autopilot > Devices > Import
+2026-10-22T10:34:38  Wait for Profile status = Assigned before booting the machine into setup.
+2026-10-22T10:45:05  Output file: C:\temp\AutopilotHash_PF5ZZY10.csv
+2026-10-22T10:45:05  Log file   : C:\temp\AutopilotHash_PF5ZZY10.log
+2026-10-22T10:45:05  --- Preflight 
+2026-10-22T10:45:07  IPv6 already set to prefer IPv4 (DisabledComponents=0x20).
+2026-10-22T10:45:07  Time service: Running (startup: Automatic)
+2026-10-22T10:45:07  Time source : time.windows.com,0x9
+2026-10-22T10:45:07  Last sync   : 10/22/2026 6:36:30 AM
+2026-10-22T10:45:07  Time zone   : Eastern Standard Time
+2026-10-22T10:45:07  Local time  : 2026-10-22 10:45:07 -04:00
+2026-10-22T10:45:07  Clock skew  : 0s vs internet time
+2026-10-22T10:45:10  Reachable: login.microsoftonline.com
+2026-10-22T10:45:10  Reachable: ztd.dds.microsoft.com
+2026-10-22T10:45:10  Reachable: enterpriseregistration.windows.net
+2026-10-22T10:45:10  --- Hash collection 
+2026-10-22T10:45:11  --- Result 
+2026-10-22T10:45:11  SUCCESS
+2026-10-22T10:45:11    Serial : PF5ZZY10
+2026-10-22T10:45:11    Hash   : T0HlBAEAHAAAAAoARRr0ZQAACgD1Glhm991sMvAC...
+2026-10-22T10:45:11    File   : C:\temp\AutopilotHash_PF5ZZY10.csv
+2026-10-22T10:45:11  --- Intune registration 
+2026-10-22T10:45:12  Sign in with an Intune admin account (device code - use any other device's browser).
+2026-10-22T10:46:33  Output file: C:\temp\AutopilotHash_PF5ZZY10.csv
+2026-10-22T10:46:33  Log file   : C:\temp\AutopilotHash_PF5ZZY10.log
+2026-10-22T10:46:33  --- Preflight 
+2026-10-22T10:46:34  IPv6 already set to prefer IPv4 (DisabledComponents=0x20).
+2026-10-22T10:46:35  Time service: Running (startup: Automatic)
+2026-10-22T10:46:35  Time source : time.windows.com,0x9
+2026-10-22T10:46:35  Last sync   : 10/22/2026 6:36:30 AM
+2026-10-22T10:46:35  Time zone   : Eastern Standard Time
+2026-10-22T10:46:35  Local time  : 2026-10-22 10:46:35 -04:00
+2026-10-22T10:46:35  Clock skew  : 1s vs internet time
+2026-10-22T10:46:38  Reachable: login.microsoftonline.com
+2026-10-22T10:46:38  Reachable: ztd.dds.microsoft.com
+2026-10-22T10:46:38  Reachable: enterpriseregistration.windows.net
+2026-10-22T10:46:38  --- Hash collection 
+2026-10-22T10:46:38  --- Result 
+2026-10-22T10:46:38  SUCCESS
+2026-10-22T10:46:38    Serial : PF5ZZY10
+2026-10-22T10:46:38    Hash   : T0HlBAEAHAAAAAoARRr0ZQAACgD1GlhmTt5sMvAC...
+2026-10-22T10:46:38    File   : C:\temp\AutopilotHash_PF5ZZY10.csv
+2026-10-22T10:46:38  --- Intune registration 
+2026-10-22T10:46:39  Sign in with an Intune admin account (device code - use any other device's browser).
+2026-10-22T10:58:40  Output file: C:\temp\AutopilotHash_PF5ZZY10.csv
+2026-10-22T10:58:40  Log file   : C:\temp\AutopilotHash_PF5ZZY10.log
+2026-10-22T10:58:40  --- Preflight 
+2026-10-22T10:58:42  IPv6 already set to prefer IPv4 (DisabledComponents=0x20).
+2026-10-22T10:58:42  Time service: Running (startup: Automatic)
+2026-10-22T10:58:42  Time source : time.windows.com,0x9
+2026-10-22T10:58:43  Last sync   : 10/22/2026 6:36:30 AM
+2026-10-22T10:58:43  Time zone   : Eastern Standard Time
+2026-10-22T10:58:43  Local time  : 2026-10-22 10:58:43 -04:00
+2026-10-22T10:58:43  Clock skew  : 1s vs internet time
+2026-10-22T10:58:45  Reachable: login.microsoftonline.com
+2026-10-22T10:58:45  Reachable: ztd.dds.microsoft.com
+2026-10-22T10:58:46  Reachable: enterpriseregistration.windows.net
+2026-10-22T10:58:46  --- Hash collection 
+2026-10-22T10:58:46  --- Result 
+2026-10-22T10:58:46  SUCCESS
+2026-10-22T10:58:46    Serial : PF5ZZY10
+2026-10-22T10:58:46    Hash   : T0HlBAEAHAAAAAoARRr0ZQAACgD1GlhmJuFsMvAC...
+2026-10-22T10:58:46    File   : C:\temp\AutopilotHash_PF5ZZY10.csv
+2026-10-22T10:58:46  --- Intune registration 
+2026-10-22T10:58:47  =================================================================
+2026-10-22T10:58:47    On your phone or another PC, open:  https://login.microsoft.com/device
+2026-10-22T10:58:47    Enter this code:                    EFFFZKLKM
+2026-10-22T10:58:47    Sign in with an Intune admin account. Waiting...
+2026-10-22T10:58:47  =================================================================
+2026-10-22T11:04:19  Signed in.
+2026-10-22T11:04:20  Import submitted. Waiting for Intune to process it (usually 1-5 min)...
+2026-10-22T11:04:41    Import status: unknown
+2026-10-22T11:05:01    Import status: unknown
+2026-10-22T11:05:22    Import status: unknown
+2026-10-22T11:05:43    Import status: unknown
+2026-10-22T11:06:03    Import status: unknown
+2026-10-22T11:06:23    Import status: complete
+2026-10-22T11:06:54  CONFIRMED in Intune Autopilot devices.
+2026-10-22T11:06:54    Serial    : PF5ZZY10
+2026-10-22T11:06:54    Group tag : 
+2026-10-22T11:06:54    Profile   : notAssigned  (wait for 'assigned...' before setup)
+2026-10-22T11:06:54  Wait for Profile status = Assigned before booting the machine into setup.
