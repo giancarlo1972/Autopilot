@@ -1,2 +1,19 @@
 Get-Service Sense | Select-Object Status, StartType
 (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows Advanced Threat Protection\Status' -ErrorAction SilentlyContinue).OnboardingState
+
+
+
+
+(Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows Advanced Threat Protection\Status' -ErrorAction SilentlyContinue).OnboardingState
+Test-Path 'HKLM:\SOFTWARE\Policies\Microsoft\Windows Advanced Threat Protection\OnboardingInfo'
+Get-WinEvent -LogName 'Microsoft-Windows-SENSE/Operational' -MaxEvents 15 -ErrorAction SilentlyContinue |
+    Format-Table TimeCreated, Id, Message -Wrap
+
+
+
+WindowsDefenderATPLocalOnboardingScript.cmd
+
+
+
+Get-Service Sense          # should be Running
+(Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows Advanced Threat Protection\Status').OnboardingState   # 1
