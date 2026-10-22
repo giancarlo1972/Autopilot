@@ -1,0 +1,2 @@
+Get-Service Sense | Select-Object Status, StartType
+(Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows Advanced Threat Protection\Status' -ErrorAction SilentlyContinue).OnboardingState
