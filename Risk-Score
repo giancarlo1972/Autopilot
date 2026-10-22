@@ -24,3 +24,18 @@ $uri = "v1.0/servicePrincipals?`$filter=accountEnabled eq false&`$select=display
 $all=@(); do { $r = Invoke-MgGraphRequest GET $uri; $all += $r.value; $uri = $r.'@odata.nextLink' } while ($uri)
 $all | Where-Object appOwnerOrganizationId -eq 'f8cdef31-a31e-4b4a-93e4-5f571e91255a' |
     Sort-Object displayName | Format-Table displayName, appId -AutoSize
+
+
+PS C:\Users\adna-giaper02> $uri = "v1.0/servicePrincipals?`$filter=accountEnabled eq false&`$select=displayName,appId,appOwnerOrganizationId&`$top=999"
+PS C:\Users\adna-giaper02> $all=@(); do { $r = Invoke-MgGraphRequest GET $uri; $all += $r.value; $uri = $r.'@odata.nextLink' } while ($uri)
+Invoke-MgGraphRequest : The term 'Invoke-MgGraphRequest' is not recognized as the name of a cmdlet, function, script file, or operable program.
+Check the spelling of the name, or if a path was included, verify that the path is correct and try again.
+At line:1 char:21
++ $all=@(); do { $r = Invoke-MgGraphRequest GET $uri; $all += $r.value; ...
++                     ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : ObjectNotFound: (Invoke-MgGraphRequest:String) [], CommandNotFoundException
+    + FullyQualifiedErrorId : CommandNotFoundException
+
+PS C:\Users\adna-giaper02> $all | Where-Object appOwnerOrganizationId -eq 'f8cdef31-a31e-4b4a-93e4-5f571e91255a' |
+>>     Sort-Object displayName | Format-Table displayName, appId -AutoSize
+PS C:\Users\adna-giaper02>
