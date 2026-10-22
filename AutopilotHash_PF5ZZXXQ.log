@@ -1,0 +1,63 @@
+﻿2026-10-22T13:31:07  Output file: C:\temp\AutopilotHash_PF5ZZXXQ.csv
+2026-10-22T13:31:07  Log file   : C:\temp\AutopilotHash_PF5ZZXXQ.log
+2026-10-22T13:31:07  --- Preflight 
+2026-10-22T13:31:08  IPv6 enabled on: Wi-Fi 3, Bluetooth Network Connection, Wi-Fi 2, Wi-Fi 4, Wi-Fi 5, Wi-Fi, Ethernet
+2026-10-22T13:31:08    (run with -PreferIPv4 [recommended] or -DisableIPv6)
+2026-10-22T13:31:09  Time service: Stopped (startup: Manual)
+2026-10-22T13:31:09  Time source : (none - service stopped or query failed)
+2026-10-22T13:31:09  Time zone   : Pacific Standard Time
+2026-10-22T13:31:09  Local time  : 2026-10-22 13:31:09 -07:00
+2026-10-22T13:31:09  Clock skew  : -1s vs internet time
+2026-10-22T13:31:09  Windows Time service is not running - the clock is not being synced at all.
+2026-10-22T13:31:09    Clock skew beyond ~5 minutes breaks Entra join and enrolment.
+2026-10-22T13:31:09    (run with -FixTime or -Prep to start the service, resync and correct the clock)
+2026-10-22T13:31:11  Reachable: login.microsoftonline.com
+2026-10-22T13:31:11  Reachable: ztd.dds.microsoft.com
+2026-10-22T13:31:11  Reachable: enterpriseregistration.windows.net
+2026-10-22T13:31:11  --- Hash collection 
+2026-10-22T13:31:11  --- Result 
+2026-10-22T13:31:11  SUCCESS
+2026-10-22T13:31:11    Serial : PF5ZZXXQ
+2026-10-22T13:31:11    Hash   : T0HlBAEAHAAAAAoARRr0ZQAACgD1GlhmDy9tMuQC...
+2026-10-22T13:31:11    File   : C:\temp\AutopilotHash_PF5ZZXXQ.csv
+2026-10-22T13:31:11  Next: Intune > Devices > Enrollment > Windows Autopilot > Devices > Import
+2026-10-22T13:31:11    (or re-run with -Online to register it directly)
+2026-10-22T13:31:11  Wait for Profile status = Assigned before booting the machine into setup.
+2026-10-22T13:33:13  Output file: C:\temp\AutopilotHash_PF5ZZXXQ.csv
+2026-10-22T13:33:13  Log file   : C:\temp\AutopilotHash_PF5ZZXXQ.log
+2026-10-22T13:33:13  --- Preflight 
+2026-10-22T13:33:14  IPv6 set to prefer IPv4 (DisabledComponents=0x20).
+2026-10-22T13:33:14    Takes effect after REBOOT. IPv6 stays enabled, just deprioritised.
+2026-10-22T13:33:14  Time service: Stopped (startup: Manual)
+2026-10-22T13:33:14  Time source : (none - service stopped or query failed)
+2026-10-22T13:33:14  Time zone   : Pacific Standard Time
+2026-10-22T13:33:14  Local time  : 2026-10-22 13:33:14 -07:00
+2026-10-22T13:33:14  Clock skew  : 0s vs internet time
+2026-10-22T13:33:14  Windows Time service is not running - the clock is not being synced at all.
+2026-10-22T13:33:14    Clock skew beyond ~5 minutes breaks Entra join and enrolment.
+2026-10-22T16:33:14    Time zone set to Eastern Standard Time
+2026-10-22T16:33:15    Windows Time service started.
+2026-10-22T16:33:23    After fix:
+2026-10-22T16:33:23  Time service: Running (startup: Automatic)
+2026-10-22T16:33:23  Time source : time.windows.com,0x9
+2026-10-22T16:33:23  Last sync   : 10/22/2026 4:33:18 PM
+2026-10-22T16:33:23  Time zone   : Eastern Standard Time
+2026-10-22T16:33:23  Local time  : 2026-10-22 16:33:23 -04:00
+2026-10-22T16:33:23  Clock skew  : 0s vs internet time
+2026-10-22T16:33:23    Time OK.
+2026-10-22T16:33:24  Reachable: login.microsoftonline.com
+2026-10-22T16:33:25  Reachable: ztd.dds.microsoft.com
+2026-10-22T16:33:25  Reachable: enterpriseregistration.windows.net
+2026-10-22T16:33:25  --- Hash collection 
+2026-10-22T16:33:25  --- Result 
+2026-10-22T16:33:25  SUCCESS
+2026-10-22T16:33:25    Serial : PF5ZZXXQ
+2026-10-22T16:33:25    Hash   : T0HlBAEAHAAAAAoARRr0ZQAACgD1GlhmlS9tMvAC...
+2026-10-22T16:33:25    File   : C:\temp\AutopilotHash_PF5ZZXXQ.csv
+2026-10-22T16:33:25  --- Upload 
+2026-10-22T16:33:25  Upload failed: ServiceNow upload: missing Instance (set the AP_SNOW_* environment variables).
+2026-10-22T16:33:25  CSV is still on disk at C:\temp\AutopilotHash_PF5ZZXXQ.csv for manual handling.
+2026-10-22T16:33:25  Next: Intune > Devices > Enrollment > Windows Autopilot > Devices > Import
+2026-10-22T16:33:25    (or re-run with -Online to register it directly)
+2026-10-22T16:33:25  Wait for Profile status = Assigned before booting the machine into setup.
+2026-10-22T16:33:25  Reboot pending: the prefer-IPv4 change applies after restart.
