@@ -1,7 +1,50 @@
+# --- Time fix: make sure w32time is running before resync ---
+try {
+    Set-Service w32time -StartupType Automatic -ErrorAction Stop
+    if ((Get-Service w32time).Status -ne 'Running') { Start-Service w32time -ErrorAction Stop }
+    w32tm /config /manualpeerlist:"time.windows.com,0x8 time.nist.gov,0x8" /syncfromflags:manual /update | Out-Null
+    Restart-Service w32time -Force
+    Start-Sleep 3
+    w32tm /resync /force | Out-Null
+} catch { Write-Warning "w32time sync failed: $($_.Exception.Message)" }
+
+# Fallback: if NTP (UDP 123) is blocked, set the clock from an HTTPS Date header
+$skew = $null
+try {
+    $resp = Invoke-WebRequest 'https://www.microsoft.com' -Method Head -UseBasicParsing -TimeoutSec 10
+    $net  = [datetime]::Parse($resp.Headers.Date).ToUniversalTime()
+    $skew = [math]::Abs(((Get-Date).ToUniversalTime() - $net).TotalSeconds)
+    if ($skew -gt 120) { Set-Date $net.ToLocalTime() | Out-Null; Write-Host "Clock corrected from HTTPS (was off $([int]$skew)s)" }
+} catch { Write-Warning "HTTPS time check failed: $($_.Exception.Message)" }
+
+Write-Host "TimeSource: $(w32tm /query /source)  Local: $(Get-Date)"
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 w32tm /config /manualpeerlist:"time.windows.com,0x9" /syncfromflags:manual /update
 Restart-Service w32time
 w32tm /resync /force
 w32tm /query /status
+
+
+
 
 
 ====
